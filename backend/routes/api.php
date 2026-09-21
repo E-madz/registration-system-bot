@@ -3,12 +3,10 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProgramController;
 use App\Http\Controllers\Api\ProgramFieldController;
-use App\Http\Controllers\TelegramTestWebhookController;
+use App\Http\Controllers\TelegramWebhookController;
 use Illuminate\Support\Facades\Route;
 
-// Temporary connectivity check for Phase 0 — will be replaced by the real
-// MessengerAdapter-based webhook handling in a later phase.
-Route::post('/webhook/telegram/{secret}', TelegramTestWebhookController::class);
+Route::post('/webhook/telegram/{secret}', TelegramWebhookController::class);
 
 Route::post('/login', [AuthController::class, 'login']);
 
