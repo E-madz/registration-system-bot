@@ -29,6 +29,11 @@ class BotConversationService
         $botUser = BotUser::updateOrCreate(
             ['platform' => $update->platform, 'external_id' => $update->externalUserId],
             [
+                // On Telegram/Bale, chat_id and the sender's external_id are
+                // the same in a private chat. Rubika is the platform where
+                // they differ, so this must come from the update itself,
+                // never be assumed equal to external_id.
+                'chat_id' => $update->chatId,
                 'first_name' => $update->firstName,
                 'last_name' => $update->lastName,
                 'username' => $update->username,
@@ -119,7 +124,7 @@ class BotConversationService
         $state->delete();
 
         if ($notify) {
-            $adapter->sendMessage($botUser->external_id, 'ثبت‌نام قبلی شما لغو شد.');
+            $adapter->sendMessage($botUser->chat_id, 'ثبت‌نام قبلی شما لغو شد.');
         }
     }
 
@@ -183,7 +188,7 @@ class BotConversationService
 
     private function showMyPrograms(BotUser $botUser, MessengerAdapter $adapter): void
     {
-        $chatId = $botUser->external_id;
+        $chatId = $botUser->chat_id;
 
         $registrations = Registration::query()
             ->where('bot_user_id', $botUser->id)
@@ -220,12 +225,12 @@ class BotConversationService
         $program = Program::find($programId);
 
         if (! $program || in_array($program->status, [Program::STATUS_DRAFT, Program::STATUS_ARCHIVED], true)) {
-            $adapter->sendMessage($botUser->external_id, 'این مورد دیگر در دسترس نیست.');
+            $adapter->sendMessage($botUser->chat_id, 'این مورد دیگر در دسترس نیست.');
 
             return;
         }
 
-        $this->sendProgramDetail($botUser->external_id, $program, $botUser, $adapter);
+        $this->sendProgramDetail($botUser->chat_id, $program, $botUser, $adapter);
     }
 
     private function sendProgramDetail(string $chatId, Program $program, ?BotUser $botUser, MessengerAdapter $adapter): void
@@ -323,7 +328,7 @@ class BotConversationService
         $program = Program::find($programId);
 
         if (! $program) {
-            $adapter->sendMessage($botUser->external_id, 'این مورد دیگر در دسترس نیست.');
+            $adapter->sendMessage($botUser->chat_id, 'این مورد دیگر در دسترس نیست.');
 
             return;
         }
@@ -340,13 +345,13 @@ class BotConversationService
             ->first();
 
         if (! $registration) {
-            $adapter->sendMessage($botUser->external_id, 'این ثبت‌نام یافت نشد.');
+            $adapter->sendMessage($botUser->chat_id, 'این ثبت‌نام یافت نشد.');
 
             return;
         }
 
         $registration->update(['status' => Registration::STATUS_CANCELED, 'canceled_at' => now()]);
 
-        $adapter->sendMessage($botUser->external_id, 'ثبت‌نام شما لغو شد. در صورت تمایل می‌توانید دوباره ثبت‌نام کنید.');
+        $adapter->sendMessage($botUser->chat_id, 'ثبت‌نام شما لغو شد. در صورت تمایل می‌توانید دوباره ثبت‌نام کنید.');
     }
 }

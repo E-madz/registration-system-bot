@@ -12,6 +12,7 @@ class BotUser extends Model
     protected $fillable = [
         'platform',
         'external_id',
+        'chat_id',
         'first_name',
         'last_name',
         'username',

@@ -18,7 +18,7 @@ class RegistrationFlowService
 
     public function begin(BotUser $botUser, Program $program, MessengerAdapter $adapter): void
     {
-        $chatId = $botUser->external_id;
+        $chatId = $botUser->chat_id;
 
         $existing = Registration::query()
             ->where('bot_user_id', $botUser->id)
@@ -61,7 +61,7 @@ class RegistrationFlowService
 
     public function handleTextAnswer(ConversationState $state, IncomingUpdate $update, MessengerAdapter $adapter): void
     {
-        $chatId = $state->botUser->external_id;
+        $chatId = $state->botUser->chat_id;
 
         if ($state->stage === ConversationState::STAGE_CONFIRMING) {
             $adapter->sendMessage($chatId, 'لطفاً یکی از دکمه‌های زیر را انتخاب کنید:');
@@ -125,7 +125,7 @@ class RegistrationFlowService
 
     public function cancel(ConversationState $state, MessengerAdapter $adapter): void
     {
-        $chatId = $state->botUser->external_id;
+        $chatId = $state->botUser->chat_id;
         $state->delete();
         $adapter->sendMessage($chatId, 'ثبت‌نام لغو شد.');
     }
@@ -158,7 +158,7 @@ class RegistrationFlowService
 
     private function askField(ConversationState $state, ProgramField $field, MessengerAdapter $adapter): void
     {
-        $chatId = $state->botUser->external_id;
+        $chatId = $state->botUser->chat_id;
         $fields = $this->orderedFields($state->program);
         $index = $fields->search(fn (ProgramField $f) => $f->id === $field->id);
 
@@ -379,7 +379,7 @@ class RegistrationFlowService
         $selected = $answers[self::MULTISELECT_TMP_KEY] ?? [];
 
         if (empty($selected) && $field->is_required) {
-            $adapter->sendMessage($state->botUser->external_id, 'حداقل یک گزینه را انتخاب کنید.');
+            $adapter->sendMessage($state->botUser->chat_id, 'حداقل یک گزینه را انتخاب کنید.');
 
             return;
         }
@@ -409,7 +409,7 @@ class RegistrationFlowService
             $keyboard[] = [new KeyboardButton('◀️ ویرایش آخرین فیلد', 'field_back')];
         }
 
-        $adapter->sendMessage($state->botUser->external_id, implode("\n", $lines), $keyboard);
+        $adapter->sendMessage($state->botUser->chat_id, implode("\n", $lines), $keyboard);
     }
 
     private function formatAnswerForDisplay(mixed $answer): string
@@ -429,7 +429,7 @@ class RegistrationFlowService
 
     private function finalize(ConversationState $state, MessengerAdapter $adapter): void
     {
-        $chatId = $state->botUser->external_id;
+        $chatId = $state->botUser->chat_id;
         $program = $state->program;
 
         if ($state->stage !== ConversationState::STAGE_CONFIRMING) {
