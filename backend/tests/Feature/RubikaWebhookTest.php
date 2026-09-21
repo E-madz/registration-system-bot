@@ -42,7 +42,8 @@ class RubikaWebhookTest extends TestCase
 
     /**
      * Both chat_keypad (main menu) and inline_keypad (per-message button)
-     * taps arrive this way in practice — see RubikaAdapter's docblock.
+     * taps arrive via this same "NewMessage" shape — see RubikaAdapter's
+     * docblock.
      */
     private function sendButtonTap(string $buttonId): void
     {

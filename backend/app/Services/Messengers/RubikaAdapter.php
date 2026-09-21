@@ -12,20 +12,23 @@ use Illuminate\Support\Facades\Log;
 /**
  * Rubika's Bot API (https://botapi.rubika.ir/v3) has its own JSON shape,
  * unrelated to Telegram's. Key differences handled here:
- *  - In practice, BOTH chat_keypad (persistent reply keyboard) taps and
- *    inline_keypad (per-message button) taps arrive via the same
- *    `update.new_message` shape, with `aux_data.button_id` set to the
- *    button's id. Registering a separate "ReceiveInlineMessage" endpoint
- *    for a distinct `inline_message` shape returned "InvalidUrl" from
- *    Rubika and never actually delivered anything — that shape is kept
- *    below only as a harmless fallback in case it's ever needed.
+ *  - BOTH chat_keypad (persistent reply keyboard) taps and inline_keypad
+ *    (per-message button) taps arrive via the same `type: "NewMessage"`
+ *    update, with `new_message.aux_data.button_id` set to the button's id.
+ *    (The separate `inline_message` shape is for Rubika's unrelated
+ *    "ReceiveQuery" inline-query feature — not button taps — which is why
+ *    registering a "ReceiveInlineMessage" endpoint always returned
+ *    "InvalidUrl": there was never anything for it to deliver here.)
  *  - Since both button kinds share one field, we tell them apart the only
  *    way we reliably can: our own inline button ids (built in
- *    buildKeypad()/BotConversationService) are always space-free
+ *    buildInlineKeypad()/BotConversationService) are always space-free
  *    identifiers like "program-5" or "back_to_programs", while our only
  *    chat_keypad buttons are the main-menu labels, which always contain a
  *    space. A button id with a space is therefore treated as if the user
  *    had typed that label as plain text; anything else is callback data.
+ *  - inline_keypad and chat_keypad are NOT the same shape: chat_keypad
+ *    takes {rows, resize_keyboard, on_time_keyboard}, but inline_keypad
+ *    takes only {rows} — adding the extra two fields there is invalid.
  *  - No callback-acknowledgement concept like Telegram's answerCallbackQuery,
  *    so answerCallback() is a no-op.
  *  - Sending a photo is a three-step dance: request an upload URL, upload
@@ -45,18 +48,6 @@ class RubikaAdapter implements MessengerAdapter
     public function parseUpdate(Request $request): IncomingUpdate
     {
         $data = $request->all();
-
-        if (isset($data['inline_message'])) {
-            $inline = $data['inline_message'];
-
-            return new IncomingUpdate(
-                platform: $this->platform(),
-                chatId: (string) ($inline['chat_id'] ?? ''),
-                externalUserId: (string) ($inline['sender_id'] ?? ''),
-                callbackData: $inline['aux_data']['button_id'] ?? null,
-                callbackQueryId: (string) ($inline['message_id'] ?? uniqid('rubika_', true)),
-            );
-        }
 
         $update = $data['update'] ?? [];
         $message = $update['new_message'] ?? [];
@@ -87,7 +78,7 @@ class RubikaAdapter implements MessengerAdapter
         $payload = ['chat_id' => $chatId, 'text' => $text];
 
         if ($keyboard) {
-            $payload['inline_keypad'] = $this->buildKeypad($keyboard);
+            $payload['inline_keypad'] = $this->buildInlineKeypad($keyboard);
         }
 
         $this->post('sendMessage', $payload);
@@ -121,7 +112,7 @@ class RubikaAdapter implements MessengerAdapter
             $payload = ['chat_id' => $chatId, 'file_id' => $fileId, 'type' => 'Image', 'text' => $caption];
 
             if ($keyboard) {
-                $payload['inline_keypad'] = $this->buildKeypad($keyboard);
+                $payload['inline_keypad'] = $this->buildInlineKeypad($keyboard);
             }
 
             $this->post('sendFile', $payload);
@@ -158,7 +149,7 @@ class RubikaAdapter implements MessengerAdapter
     /**
      * @param  array<int, array<int, \App\DataTransferObjects\KeyboardButton>>  $keyboard
      */
-    private function buildKeypad(array $keyboard): array
+    private function buildInlineKeypad(array $keyboard): array
     {
         $rows = array_map(
             fn (array $row) => ['buttons' => array_map(
@@ -168,7 +159,7 @@ class RubikaAdapter implements MessengerAdapter
             $keyboard,
         );
 
-        return ['rows' => $rows, 'resize_keyboard' => true, 'on_time_keyboard' => false];
+        return ['rows' => $rows];
     }
 
     private function post(string $method, array $payload): void
