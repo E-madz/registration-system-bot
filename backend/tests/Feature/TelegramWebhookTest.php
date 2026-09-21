@@ -32,10 +32,9 @@ class TelegramWebhookTest extends TestCase
         $this->postJson('/api/webhook/telegram/wrong-secret', [])->assertStatus(404);
     }
 
-    public function test_start_command_lists_published_programs_and_creates_bot_user(): void
+    public function test_start_command_shows_main_menu_and_creates_bot_user(): void
     {
         Http::fake();
-        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
 
         $this->postJson($this->webhookUrl(), [
             'message' => [
@@ -53,6 +52,26 @@ class TelegramWebhookTest extends TestCase
         ]);
 
         $this->assertNotNull(BotUser::first()->last_interaction_at);
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), 'sendMessage')
+                && $request['chat_id'] === '111'
+                && isset($request['reply_markup']['keyboard']);
+        });
+    }
+
+    public function test_all_programs_menu_lists_published_programs(): void
+    {
+        Http::fake();
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+
+        $this->postJson($this->webhookUrl(), [
+            'message' => [
+                'chat' => ['id' => 111],
+                'from' => ['id' => 222],
+                'text' => '📋 مشاهده همه رویدادهای فعال',
+            ],
+        ])->assertOk();
 
         Http::assertSent(function ($request) use ($program) {
             return str_contains($request->url(), 'sendMessage')
@@ -83,7 +102,7 @@ class TelegramWebhookTest extends TestCase
         });
     }
 
-    public function test_unrecognized_text_gets_a_fallback_reply(): void
+    public function test_unrecognized_text_is_treated_as_a_search_with_no_results(): void
     {
         Http::fake();
 
@@ -97,7 +116,7 @@ class TelegramWebhookTest extends TestCase
 
         Http::assertSent(function ($request) {
             return str_contains($request->url(), 'sendMessage')
-                && str_contains($request['text'], '/start');
+                && str_contains($request['text'], 'پیدا نشد');
         });
     }
 }

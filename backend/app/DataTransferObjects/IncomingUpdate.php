@@ -14,10 +14,17 @@ final class IncomingUpdate
         public readonly ?string $text = null,
         public readonly ?string $callbackData = null,
         public readonly ?string $callbackQueryId = null,
+        public readonly ?string $fileId = null,
+        public readonly ?string $fileType = null,
     ) {}
 
     public function isCallback(): bool
     {
         return $this->callbackData !== null;
+    }
+
+    public function hasFile(): bool
+    {
+        return $this->fileId !== null;
     }
 }

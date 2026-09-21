@@ -34,4 +34,14 @@ class BotUser extends Model
             'banned_at' => 'datetime',
         ];
     }
+
+    public function registrations()
+    {
+        return $this->hasMany(Registration::class);
+    }
+
+    public function conversationState()
+    {
+        return $this->hasOne(ConversationState::class);
+    }
 }

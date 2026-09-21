@@ -41,6 +41,18 @@ class TelegramAdapter implements MessengerAdapter
 
         $message = $data['message'] ?? [];
 
+        $fileId = null;
+        $fileType = null;
+
+        if (isset($message['photo'])) {
+            // Telegram sends multiple sizes; the last one is the largest.
+            $fileId = last($message['photo'])['file_id'] ?? null;
+            $fileType = 'photo';
+        } elseif (isset($message['document'])) {
+            $fileId = $message['document']['file_id'] ?? null;
+            $fileType = 'document';
+        }
+
         return new IncomingUpdate(
             platform: $this->platform(),
             chatId: (string) ($message['chat']['id'] ?? ''),
@@ -49,6 +61,8 @@ class TelegramAdapter implements MessengerAdapter
             lastName: $message['from']['last_name'] ?? null,
             username: $message['from']['username'] ?? null,
             text: $message['text'] ?? null,
+            fileId: $fileId,
+            fileType: $fileType,
         );
     }
 
@@ -72,6 +86,53 @@ class TelegramAdapter implements MessengerAdapter
         }
 
         $this->post('sendMessage', $payload);
+    }
+
+    public function sendPhoto(string $chatId, string $photoPath, string $caption, ?array $keyboard = null): void
+    {
+        $payload = [
+            'chat_id' => $chatId,
+            'caption' => $caption,
+        ];
+
+        if ($keyboard) {
+            $payload['reply_markup'] = json_encode([
+                'inline_keyboard' => array_map(
+                    fn (array $row) => array_map(
+                        fn ($button) => ['text' => $button->label, 'callback_data' => $button->value],
+                        $row,
+                    ),
+                    $keyboard,
+                ),
+            ]);
+        }
+
+        try {
+            $response = Http::timeout(10)
+                ->attach('photo', file_get_contents($photoPath), basename($photoPath))
+                ->post($this->apiUrl('sendPhoto'), $payload);
+
+            if ($response->failed()) {
+                Log::warning('Telegram sendPhoto failed', ['response' => $response->json()]);
+            }
+        } catch (ConnectionException $exception) {
+            Log::error('Telegram sendPhoto connection failed', ['message' => $exception->getMessage()]);
+        }
+    }
+
+    public function sendReplyKeyboard(string $chatId, string $text, array $buttonRows): void
+    {
+        $this->post('sendMessage', [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'reply_markup' => [
+                'keyboard' => array_map(
+                    fn (array $row) => array_map(fn (string $label) => ['text' => $label], $row),
+                    $buttonRows,
+                ),
+                'resize_keyboard' => true,
+            ],
+        ]);
     }
 
     public function answerCallback(string $callbackQueryId, ?string $text = null): void

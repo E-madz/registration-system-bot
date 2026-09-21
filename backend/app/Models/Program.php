@@ -76,6 +76,58 @@ class Program extends Model
         return $this->hasMany(ProgramField::class)->orderBy('order');
     }
 
+    public function registrations()
+    {
+        return $this->hasMany(Registration::class);
+    }
+
+    public function confirmedRegistrationsCount(): int
+    {
+        return $this->registrations()->where('status', Registration::STATUS_CONFIRMED)->count();
+    }
+
+    /**
+     * Null capacity means unlimited.
+     */
+    public function remainingCapacity(): ?int
+    {
+        if ($this->capacity === null) {
+            return null;
+        }
+
+        return max(0, $this->capacity - $this->confirmedRegistrationsCount());
+    }
+
+    public function hasCapacity(): bool
+    {
+        return $this->remainingCapacity() === null || $this->remainingCapacity() > 0;
+    }
+
+    /**
+     * @return 'not_started'|'open'|'ended'
+     */
+    public function registrationWindowState(): string
+    {
+        $now = now();
+
+        if ($this->registration_starts_at && $now->lt($this->registration_starts_at)) {
+            return 'not_started';
+        }
+
+        if ($this->registration_ends_at && $now->gt($this->registration_ends_at)) {
+            return 'ended';
+        }
+
+        return 'open';
+    }
+
+    public function isAcceptingRegistrations(): bool
+    {
+        return $this->status === self::STATUS_PUBLISHED
+            && $this->registrationWindowState() === 'open'
+            && $this->hasCapacity();
+    }
+
     public function canTransitionTo(string $status): bool
     {
         return in_array($status, self::TRANSITIONS[$this->status] ?? [], true);
