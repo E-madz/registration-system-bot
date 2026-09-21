@@ -194,7 +194,7 @@ class RubikaAdapter implements MessengerAdapter
                 return null;
             }
 
-            $extension = $this->guessExtension(parse_url($downloadUrl, PHP_URL_PATH) ?: null, $fileResponse->header('Content-Type'));
+            $extension = $this->guessExtension(parse_url($downloadUrl, PHP_URL_PATH) ?: null, $fileResponse->header('Content-Type'), $fileResponse->body());
             $storedPath = 'registration-uploads/rubika/'.Str::uuid().'.'.$extension;
             Storage::disk('public')->put($storedPath, $fileResponse->body());
 

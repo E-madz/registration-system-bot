@@ -179,7 +179,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
                 return null;
             }
 
-            $extension = $this->guessExtension($filePath, $fileResponse->header('Content-Type'));
+            $extension = $this->guessExtension($filePath, $fileResponse->header('Content-Type'), $fileResponse->body());
             $storedPath = 'registration-uploads/'.$this->platform().'/'.Str::uuid().'.'.$extension;
             Storage::disk('public')->put($storedPath, $fileResponse->body());
 

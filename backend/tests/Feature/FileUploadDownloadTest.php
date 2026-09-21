@@ -110,6 +110,39 @@ class FileUploadDownloadTest extends TestCase
         $this->assertStringEndsWith('.jpg', $answer->value['stored_path']);
     }
 
+    public function test_sniffs_the_extension_from_file_content_when_content_type_is_generic(): void
+    {
+        // Mirrors what Bale actually does: no extension in file_path, and
+        // a generic "application/octet-stream" Content-Type on the actual
+        // file response - neither the path nor the header help, so this
+        // must fall back to sniffing the real bytes.
+        $jpegBytes = base64_decode(
+            '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q=='
+        );
+
+        Http::fake([
+            'api.telegram.org/*/getFile*' => Http::response([
+                'ok' => true, 'result' => ['file_path' => 'files/no-extension-here'],
+            ]),
+            'api.telegram.org/file/*' => Http::response($jpegBytes, 200, ['Content-Type' => 'application/octet-stream']),
+            '*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        ProgramField::factory()->create([
+            'program_id' => $program->id, 'key' => 'id_card', 'label' => 'ID card photo',
+            'type' => 'file', 'is_required' => true, 'order' => 0,
+        ]);
+
+        $this->sendCallback("register-{$program->id}");
+        $this->sendPhoto();
+        $this->sendCallback('confirm_registration');
+
+        $answer = Registration::first()->answers()->where('field_key', 'id_card')->first();
+        $this->assertStringEndsWith('.jpg', $answer->value['stored_path']);
+        $this->assertSame($jpegBytes, Storage::disk('public')->get($answer->value['stored_path']));
+    }
+
     public function test_still_registers_successfully_when_the_download_itself_fails(): void
     {
         Http::fake([
