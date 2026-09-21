@@ -3,10 +3,14 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProgramController;
 use App\Http\Controllers\Api\ProgramFieldController;
+use App\Http\Controllers\BaleWebhookController;
+use App\Http\Controllers\RubikaWebhookController;
 use App\Http\Controllers\TelegramWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/webhook/telegram/{secret}', TelegramWebhookController::class);
+Route::post('/webhook/bale/{secret}', BaleWebhookController::class);
+Route::post('/webhook/rubika/{secret}', RubikaWebhookController::class);
 
 Route::post('/login', [AuthController::class, 'login']);
 

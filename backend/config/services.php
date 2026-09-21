@@ -40,4 +40,14 @@ return [
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
     ],
 
+    'bale' => [
+        'bot_token' => env('BALE_BOT_TOKEN'),
+        'webhook_secret' => env('BALE_WEBHOOK_SECRET'),
+    ],
+
+    'rubika' => [
+        'bot_token' => env('RUBIKA_BOT_TOKEN'),
+        'webhook_secret' => env('RUBIKA_WEBHOOK_SECRET'),
+    ],
+
 ];
