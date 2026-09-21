@@ -80,12 +80,48 @@ const editField = reactive({
 const editFieldError = ref('')
 const savingField = ref(false)
 
+const dragIndex = ref(null)
+
 const availableTransitions = computed(() => TRANSITIONS[program.status] || [])
+
+/**
+ * The API returns datetime fields as ISO 8601 UTC (e.g.
+ * "2026-09-21T10:00:00.000000Z"), but a native <input type="datetime-local">
+ * only accepts "YYYY-MM-DDTHH:mm" with no seconds/timezone - assigning it
+ * the ISO string makes the browser silently treat the value as invalid and
+ * render the field as empty, even though the underlying model still held a
+ * value. Converting on the way in/out keeps the input in sync with reality.
+ *
+ * The backend (config('app.timezone')) always works in Asia/Tehran, so this
+ * always renders/parses that same wall-clock time explicitly, regardless of
+ * the admin's own device timezone - otherwise an admin whose OS clock isn't
+ * set to Asia/Tehran would see times drift on every save.
+ */
+const DATETIME_TZ = 'Asia/Tehran'
+
+function toDatetimeLocal(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: DATETIME_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d)
+  const get = (type) => parts.find((p) => p.type === type).value
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
+}
 
 async function loadProgram() {
   loading.value = true
   const { data } = await apiClient.get(`/programs/${programId}`)
   Object.assign(program, data.data)
+  program.registration_starts_at = toDatetimeLocal(data.data.registration_starts_at)
+  program.registration_ends_at = toDatetimeLocal(data.data.registration_ends_at)
   fields.value = data.data.fields
   loading.value = false
 }
@@ -101,10 +137,11 @@ async function saveProgram() {
       registration_starts_at: program.registration_starts_at || null,
       registration_ends_at: program.registration_ends_at || null,
       capacity: program.capacity || null,
-      requires_approval: program.requires_approval,
       success_message: program.success_message,
     })
     Object.assign(program, data.data)
+    program.registration_starts_at = toDatetimeLocal(data.data.registration_starts_at)
+    program.registration_ends_at = toDatetimeLocal(data.data.registration_ends_at)
     saveMessage.value = 'ذخیره شد.'
   } catch (e) {
     const errors = e.response?.data?.errors
@@ -223,13 +260,26 @@ async function saveEditField(field) {
   }
 }
 
-async function moveField(index, direction) {
-  const target = index + direction
-  if (target < 0 || target >= fields.value.length) return
-  const order = fields.value.map((f) => f.id)
-  ;[order[index], order[target]] = [order[target], order[index]]
+function onDragStart(index) {
+  dragIndex.value = index
+}
+
+function onDragEnd() {
+  dragIndex.value = null
+}
+
+async function onDrop(index) {
+  const from = dragIndex.value
+  dragIndex.value = null
+  if (from === null || from === index) return
+
+  const reordered = [...fields.value]
+  const [moved] = reordered.splice(from, 1)
+  reordered.splice(index, 0, moved)
+  fields.value = reordered
+
+  const order = reordered.map((f) => f.id)
   await apiClient.post(`/programs/${programId}/fields/reorder`, { order })
-  await loadProgram()
 }
 
 function goBack() {
@@ -252,10 +302,9 @@ onMounted(loadProgram)
       <div class="form-grid">
         <label class="span-2">عنوان<input v-model="program.title" maxlength="40" /></label>
         <label class="span-2">توضیحات<textarea v-model="program.description"></textarea></label>
-        <label>شروع ثبت‌نام<input v-model="program.registration_starts_at" type="datetime-local" /></label>
-        <label>پایان ثبت‌نام<input v-model="program.registration_ends_at" type="datetime-local" /></label>
-        <label>ظرفیت<input v-model.number="program.capacity" type="number" min="1" placeholder="نامحدود" /></label>
-        <label class="checkbox align-end"><input v-model="program.requires_approval" type="checkbox" /> نیاز به تایید ادمین</label>
+        <label>شروع ثبت‌نام (به‌وقت تهران)<input v-model="program.registration_starts_at" type="datetime-local" /></label>
+        <label>پایان ثبت‌نام (به‌وقت تهران)<input v-model="program.registration_ends_at" type="datetime-local" /></label>
+        <label class="span-2">ظرفیت<input v-model.number="program.capacity" type="number" min="1" placeholder="نامحدود" /></label>
         <label class="span-2">پیام موفقیت<textarea v-model="program.success_message" placeholder="پس از ثبت‌نام موفق به کاربر نمایش داده می‌شود"></textarea></label>
       </div>
       <div class="row">
@@ -294,11 +343,12 @@ onMounted(loadProgram)
 
     <section class="card">
       <h2>فیلدهای ثبت‌نام</h2>
+      <p class="muted">برای تغییر ترتیب، هر ردیف را بگیر و بکش.</p>
       <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>ترتیب</th>
+            <th></th>
             <th>برچسب</th>
             <th>key</th>
             <th>نوع</th>
@@ -308,11 +358,17 @@ onMounted(loadProgram)
         </thead>
         <tbody>
           <template v-for="(field, index) in fields" :key="field.id">
-            <tr v-if="editingFieldId !== field.id">
-              <td class="order-cell">
-                <button class="small ghost" @click="moveField(index, -1)" :disabled="index === 0">↑</button>
-                <button class="small ghost" @click="moveField(index, 1)" :disabled="index === fields.length - 1">↓</button>
-              </td>
+            <tr
+              v-if="editingFieldId !== field.id"
+              class="draggable-row"
+              :class="{ dragging: dragIndex === index }"
+              draggable="true"
+              @dragstart="onDragStart(index)"
+              @dragend="onDragEnd"
+              @dragover.prevent
+              @drop="onDrop(index)"
+            >
+              <td class="drag-handle" title="جابه‌جایی">⠿</td>
               <td>{{ field.label }}</td>
               <td class="muted">{{ field.key }}</td>
               <td>{{ FIELD_TYPE_LABELS[field.type] || field.type }}</td>
@@ -381,12 +437,18 @@ onMounted(loadProgram)
   flex-wrap: wrap;
   gap: 10px;
 }
-label.align-end {
-  align-self: end;
+.drag-handle {
+  cursor: grab;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  text-align: center;
+  width: 28px;
 }
-.order-cell {
-  display: flex;
-  gap: 4px;
+.draggable-row.dragging {
+  opacity: 0.4;
+}
+.draggable-row:hover .drag-handle {
+  color: var(--color-text);
 }
 .actions {
   display: flex;
