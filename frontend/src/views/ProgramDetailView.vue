@@ -314,6 +314,21 @@ onMounted(loadProgram)
     <h1>{{ program.title }}</h1>
 
     <section class="card">
+      <div class="card-header">
+        <h2>ثبت‌نام‌ها</h2>
+        <button class="small" @click="router.push(`/programs/${programId}/registrations`)">مشاهده لیست</button>
+      </div>
+      <div class="stats-row">
+        <span><strong>{{ program.confirmed_registrations_count }}</strong> <span class="muted">تاییدشده</span></span>
+        <span v-if="program.capacity">
+          <strong>{{ Math.max(0, program.capacity - program.confirmed_registrations_count) }}</strong>
+          <span class="muted">ظرفیت باقی‌مانده از {{ program.capacity }}</span>
+        </span>
+        <span v-else class="muted">ظرفیت نامحدود</span>
+      </div>
+    </section>
+
+    <section class="card">
       <h2>اطلاعات پایه</h2>
       <div class="form-grid">
         <label class="span-2">عنوان<input v-model="program.title" maxlength="40" /></label>
@@ -482,6 +497,11 @@ onMounted(loadProgram)
 </template>
 
 <style scoped>
+.stats-row {
+  display: flex;
+  gap: 24px;
+  font-size: 14px;
+}
 .row {
   display: flex;
   align-items: center;

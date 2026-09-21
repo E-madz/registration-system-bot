@@ -8,6 +8,7 @@ const newTitle = ref('')
 const error = ref('')
 const loading = ref(true)
 const creating = ref(false)
+const statusFilter = ref('')
 const router = useRouter()
 
 const STATUS_LABELS = {
@@ -21,7 +22,9 @@ const STATUS_LABELS = {
 async function loadPrograms() {
   loading.value = true
   try {
-    const { data } = await apiClient.get('/programs')
+    const { data } = await apiClient.get('/programs', {
+      params: statusFilter.value ? { status: statusFilter.value } : {},
+    })
     programs.value = data.data
   } finally {
     loading.value = false
@@ -56,6 +59,10 @@ function openProgram(program) {
   router.push(`/programs/${program.id}`)
 }
 
+function openRegistrations(program) {
+  router.push(`/programs/${program.id}/registrations`)
+}
+
 onMounted(loadPrograms)
 </script>
 
@@ -75,6 +82,13 @@ onMounted(loadPrograms)
     </section>
 
     <section class="card">
+      <div class="card-header">
+        <h2>لیست</h2>
+        <select v-model="statusFilter" @change="loadPrograms">
+          <option value="">همه‌ی وضعیت‌ها</option>
+          <option v-for="(label, status) in STATUS_LABELS" :key="status" :value="status">{{ label }}</option>
+        </select>
+      </div>
       <div v-if="loading" class="spinner-wrap"><div class="spinner"></div></div>
       <div v-else class="table-wrap">
       <table>
@@ -92,12 +106,13 @@ onMounted(loadPrograms)
             <td class="muted">{{ program.slug }}</td>
             <td><span class="badge" :class="program.status">{{ STATUS_LABELS[program.status] || program.status }}</span></td>
             <td class="actions" @click.stop>
+              <button class="small" @click="openRegistrations(program)">ثبت‌نام‌ها</button>
               <button class="small" @click="openProgram(program)">مشاهده/ویرایش</button>
               <button v-if="program.status === 'draft'" class="danger small" @click="deleteProgram(program)">حذف</button>
             </td>
           </tr>
           <tr v-if="programs.length === 0" class="empty-row">
-            <td colspan="4">هنوز موردی ثبت نشده. از فرم بالا یک مورد جدید بساز.</td>
+            <td colspan="4">موردی یافت نشد.</td>
           </tr>
         </tbody>
       </table>

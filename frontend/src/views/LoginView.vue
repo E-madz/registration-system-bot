@@ -16,7 +16,7 @@ async function submit() {
   loading.value = true
   try {
     await auth.login(email.value, password.value)
-    router.push('/programs')
+    router.push('/dashboard')
   } catch (e) {
     error.value = e.response?.data?.message || 'ورود ناموفق بود.'
   } finally {
