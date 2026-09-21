@@ -106,12 +106,13 @@ fi
 if [[ -n "$RUBIKA_BOT_TOKEN" && -n "$RUBIKA_WEBHOOK_SECRET" ]]; then
     WEBHOOK_URL="$TUNNEL_URL/api/webhook/rubika/$RUBIKA_WEBHOOK_SECRET"
     echo "Setting Rubika webhook to: $WEBHOOK_URL"
-    for TYPE in ReceiveUpdate ReceiveInlineMessage; do
-        RESPONSE="$(curl -s --noproxy '*' -X POST "https://botapi.rubika.ir/v3/${RUBIKA_BOT_TOKEN}/updateBotEndpoints" \
-            -H "Content-Type: application/json" \
-            -d "{\"url\":\"${WEBHOOK_URL}\",\"type\":\"${TYPE}\"}")"
-        echo "Rubika response ($TYPE): $RESPONSE"
-    done
+    # Both chat_keypad and inline_keypad taps arrive via ReceiveUpdate in
+    # practice; registering ReceiveInlineMessage as well consistently
+    # returned "InvalidUrl" and delivered nothing, so we don't bother.
+    RESPONSE="$(curl -s --noproxy '*' -X POST "https://botapi.rubika.ir/v3/${RUBIKA_BOT_TOKEN}/updateBotEndpoints" \
+        -H "Content-Type: application/json" \
+        -d "{\"url\":\"${WEBHOOK_URL}\",\"type\":\"ReceiveUpdate\"}")"
+    echo "Rubika response (ReceiveUpdate): $RESPONSE"
     echo
 fi
 

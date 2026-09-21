@@ -40,6 +40,10 @@ class RubikaWebhookTest extends TestCase
         ])->assertOk();
     }
 
+    /**
+     * Both chat_keypad (main menu) and inline_keypad (per-message button)
+     * taps arrive this way in practice — see RubikaAdapter's docblock.
+     */
     private function sendButtonTap(string $buttonId): void
     {
         $this->postJson('/api/webhook/rubika/test-secret', [
@@ -51,18 +55,6 @@ class RubikaWebhookTest extends TestCase
                     'sender_id' => 'u222',
                     'aux_data' => ['button_id' => $buttonId],
                 ],
-            ],
-        ])->assertOk();
-    }
-
-    private function sendInlineTap(string $buttonId): void
-    {
-        $this->postJson('/api/webhook/rubika/test-secret', [
-            'inline_message' => [
-                'chat_id' => 'c111',
-                'sender_id' => 'u222',
-                'message_id' => 'm3',
-                'aux_data' => ['button_id' => $buttonId],
             ],
         ])->assertOk();
     }
@@ -88,6 +80,7 @@ class RubikaWebhookTest extends TestCase
         // A chat_keypad (persistent reply keyboard) tap arrives as
         // aux_data.button_id, whose value is the button's own label — the
         // main menu's buttons are the only chat_keypad buttons we ever send.
+        // We tell it apart from an inline_keypad action id by the space in it.
         Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
 
         $this->sendButtonTap('📋 مشاهده همه رویدادهای فعال');
@@ -100,7 +93,7 @@ class RubikaWebhookTest extends TestCase
     {
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
 
-        $this->sendInlineTap("program-{$program->id}");
+        $this->sendButtonTap("program-{$program->id}");
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', $program->title));
@@ -114,7 +107,7 @@ class RubikaWebhookTest extends TestCase
             'type' => 'file', 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendInlineTap("register-{$program->id}");
+        $this->sendButtonTap("register-{$program->id}");
 
         $this->postJson('/api/webhook/rubika/test-secret', [
             'update' => [
@@ -128,7 +121,7 @@ class RubikaWebhookTest extends TestCase
             ],
         ])->assertOk();
 
-        $this->sendInlineTap('confirm_registration');
+        $this->sendButtonTap('confirm_registration');
 
         $registration = Registration::first();
         $this->assertNotNull($registration);
@@ -144,9 +137,9 @@ class RubikaWebhookTest extends TestCase
             'type' => 'text', 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendInlineTap("register-{$program->id}");
+        $this->sendButtonTap("register-{$program->id}");
         $this->sendMessage('Ali');
-        $this->sendInlineTap('confirm_registration');
+        $this->sendButtonTap('confirm_registration');
 
         $this->assertDatabaseHas('registrations', [
             'program_id' => $program->id,
