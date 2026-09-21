@@ -1,0 +1,98 @@
+# راه‌اندازی محیط توسعه لوکال
+
+این فایل چک‌لیست کامل اجرای پروژه روی سیستم لوکال (Ubuntu، پشت VPN) رو نگه می‌داره، تا هر بار مجبور نباشیم از اول کشفش کنیم.
+
+## پیش‌نیاز یک‌باره
+
+- PHP 8.3+‏، Composer، Node.js/npm
+- MySQL نصب و در حال اجرا، با یک دیتابیس ساخته‌شده (پیش‌فرض توی `.env.example`: `registration_system_bot`)
+- [ngrok استفاده نمی‌کنیم](#چرا-ngrok-نه) — به‌جاش از `localtunnel` استفاده می‌کنیم
+- Hiddify (یا هر کلاینت VPN مشابه) با یک کانفیگ فعال
+- `localtunnel` نصب سراسری: `npm install -g localtunnel`
+
+### بک‌اند
+```bash
+cd backend
+composer install
+cp .env.example .env
+php artisan key:generate
+# مقادیر DB_DATABASE / DB_USERNAME / DB_PASSWORD رو با MySQL واقعی خودتون ست کنید
+# TELEGRAM_BOT_TOKEN و TELEGRAM_WEBHOOK_SECRET رو هم پر کنید (از BotFather)
+php artisan migrate
+php artisan db:seed   # یک ادمین تست می‌سازه: test@example.com / password
+```
+
+### فرانت‌اند
+```bash
+cd frontend
+npm install
+cp .env.example .env
+```
+
+---
+
+## هر بار که می‌خواید کار کنید
+
+### ۱. وصل کردن VPN
+Hiddify رو باز کنید، حالت **"System proxy"** رو انتخاب کنید و وصل بشید (نه "VPN" mode — روی این سیستم به‌خاطر خطای TUN کار نمی‌کنه، نه "Proxy" ساده چون کل سیستم رو پوشش نمی‌ده).
+
+پورت پراکسی محلی رو چک کنید (معمولاً ثابت می‌مونه ولی مطمئن بشید):
+```bash
+ss -tlnp 2>/dev/null | grep -i hiddify
+```
+دنبال پورتی مثل `12334` بگردید (پورت `16756` مال Clash API هست، اون رو نادیده بگیرید).
+
+### ۲. بالا آوردن بک‌اند — **با پراکسی export‌شده**
+
+⚠️ **نکته‌ی حیاتی:** لاراول برای پاسخ دادن به کاربر باید به `api.telegram.org` وصل بشه (که از ایران فیلتره). اگه `php artisan serve` رو **بدون** export کردن پراکسی اجرا کنید، وبهوک دریافت میشه ولی جواب بات به کاربر نمی‌رسه (خطای `cURL error 7: Failed to connect` توی لاگ).
+
+```bash
+cd backend
+export https_proxy=http://127.0.0.1:12334
+export http_proxy=http://127.0.0.1:12334
+php artisan serve
+```
+
+### ۳. تونل + ثبت خودکار webhook
+توی یک ترمینال دیگه:
+```bash
+./scripts/dev-telegram-tunnel.sh
+```
+این اسکریپت خودش پراکسی رو export می‌کنه، `localtunnel` رو اجرا می‌کنه، و آدرس جدید رو به‌عنوان webhook تلگرام ثبت می‌کنه. تا وقتی روشنه (`Ctrl+C` نزدید)، بات فعاله.
+
+### ۴. (اختیاری) فرانت‌اند
+```bash
+cd frontend
+npm run dev
+```
+با مرورگر به `http://localhost:5173` برید.
+
+---
+
+## عیب‌یابی سریع
+
+| علامت | علت محتمل | راه‌حل |
+|---|---|---|
+| بات به `/start` هیچ جوابی نمی‌ده، توی لاگ هم چیزی نیست | webhook درست ست نشده یا تونل قطعه | `dev-telegram-tunnel.sh` رو دوباره اجرا کنید |
+| توی لاگ `cURL error 7: Failed to connect ... api.telegram.org` هست | `php artisan serve` بدون پراکسی اجرا شده | ببندیدش، پراکسی export کنید، دوباره اجرا کنید |
+| `curl`/`lt`/`cloudflared` با `Recv failure: Connection reset by peer` مواجه میشه | قطعی موقتی سرور خروجی VPN (گاه‌به‌گاه پیش میاد) | چند بار retry کنید؛ اگه مداوم بود، سرور/کانفیگ VPN رو عوض کنید |
+| `ngrok` با `ERR_NGROK_9040` یا `ERR_NGROK_9009` | ngrok دسترسی IP ایران رو مسدود کرده و استفاده از پراکسی هم نیاز به پلن پولی داره | ازش استفاده نکنید — `localtunnel` جایگزینشه |
+
+### چرا ngrok نه؟
+ngrok اتصال از IP های ایران رو کاملاً مسدود کرده، و حتی با VPN/پراکسی هم چون قابلیت "اتصال از طریق پراکسی" فقط توی پلن پولیشه، برای dev رایگان قابل استفاده نیست. `localtunnel` جایگزین رایگان و بدون نیاز به اکانته که همین الان تست و تایید شده.
+
+---
+
+## چک‌لیست تست فاز ۲ (بات تلگرام)
+
+بعد از بالا آوردن همه‌چیز طبق بالا:
+
+1. حداقل یک Program با status **`published`** بسازید (از پنل Vue یا `php artisan tinker`).
+2. توی تلگرام `/start` بزنید → باید لیست Program های published رو به‌صورت دکمه ببینید.
+3. روی یک دکمه بزنید → باید توضیحات همون Program + دکمه‌ی "شروع ثبت‌نام" رو ببینید.
+4. روی "شروع ثبت‌نام" بزنید → باید پیام "ثبت‌نام برای این مورد به‌زودی فعال می‌شود." رو ببینید (منطق واقعیش فاز ۳ه).
+5. یک متن دلخواه (نه `/start`) بفرستید → باید پیام "برای شروع، دستور /start را ارسال کنید." رو ببینید.
+6. بررسی ذخیره‌شدن کاربر بات:
+   ```bash
+   php artisan tinker --execute="print_r(\App\Models\BotUser::all()->toArray());"
+   ```
