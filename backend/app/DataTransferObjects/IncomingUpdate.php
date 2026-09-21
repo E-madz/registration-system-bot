@@ -9,6 +9,7 @@ final class IncomingUpdate
         public readonly string $chatId,
         public readonly string $externalUserId,
         public readonly ?string $firstName = null,
+        public readonly ?string $lastName = null,
         public readonly ?string $username = null,
         public readonly ?string $text = null,
         public readonly ?string $callbackData = null,

@@ -40,7 +40,7 @@ class TelegramWebhookTest extends TestCase
         $this->postJson($this->webhookUrl(), [
             'message' => [
                 'chat' => ['id' => 111],
-                'from' => ['id' => 222, 'first_name' => 'Emad', 'username' => 'emawdz'],
+                'from' => ['id' => 222, 'first_name' => 'Emad', 'last_name' => 'Nazari', 'username' => 'emawdz'],
                 'text' => '/start',
             ],
         ])->assertOk();
@@ -49,6 +49,7 @@ class TelegramWebhookTest extends TestCase
             'platform' => 'telegram',
             'external_id' => '222',
             'first_name' => 'Emad',
+            'last_name' => 'Nazari',
         ]);
 
         Http::assertSent(function ($request) use ($program) {

@@ -13,6 +13,7 @@ class BotUser extends Model
         'platform',
         'external_id',
         'first_name',
+        'last_name',
         'username',
         'phone',
     ];

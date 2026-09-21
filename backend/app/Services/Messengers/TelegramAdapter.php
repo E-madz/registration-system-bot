@@ -32,6 +32,7 @@ class TelegramAdapter implements MessengerAdapter
                 chatId: (string) $callback['message']['chat']['id'],
                 externalUserId: (string) $callback['from']['id'],
                 firstName: $callback['from']['first_name'] ?? null,
+                lastName: $callback['from']['last_name'] ?? null,
                 username: $callback['from']['username'] ?? null,
                 callbackData: $callback['data'] ?? null,
                 callbackQueryId: (string) $callback['id'],
@@ -45,6 +46,7 @@ class TelegramAdapter implements MessengerAdapter
             chatId: (string) ($message['chat']['id'] ?? ''),
             externalUserId: (string) ($message['from']['id'] ?? ''),
             firstName: $message['from']['first_name'] ?? null,
+            lastName: $message['from']['last_name'] ?? null,
             username: $message['from']['username'] ?? null,
             text: $message['text'] ?? null,
         );
