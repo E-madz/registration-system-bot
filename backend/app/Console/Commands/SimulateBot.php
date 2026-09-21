@@ -67,6 +67,11 @@ class SimulateBot extends Command
                 // no-op for simulation
             }
 
+            public function wasBlockedByUser(): bool
+            {
+                return false;
+            }
+
             private function printKeyboard(?array $keyboard): void
             {
                 if (! $keyboard) {

@@ -14,12 +14,21 @@ class Registration extends Model
 
     public const STATUS_CANCELED = 'canceled';
 
+    public const REASON_SELF = 'self';
+
+    public const REASON_ADMIN = 'admin';
+
+    public const REASON_BANNED = 'banned';
+
+    public const REASON_BOT_BLOCKED = 'bot_blocked';
+
     protected $fillable = [
         'program_id',
         'bot_user_id',
         'status',
         'tracking_code',
         'canceled_at',
+        'canceled_reason',
     ];
 
     protected function casts(): array

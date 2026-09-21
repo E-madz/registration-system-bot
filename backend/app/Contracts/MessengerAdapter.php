@@ -42,4 +42,12 @@ interface MessengerAdapter
      * Acknowledge a callback/button press so the client stops showing a loading state.
      */
     public function answerCallback(string $callbackQueryId, ?string $text = null): void;
+
+    /**
+     * Whether any send call made on this adapter instance so far failed
+     * because the recipient has blocked the bot on this platform. Stateful
+     * per-instance - since each webhook request builds a fresh adapter, this
+     * reflects only what happened during the current request.
+     */
+    public function wasBlockedByUser(): bool;
 }

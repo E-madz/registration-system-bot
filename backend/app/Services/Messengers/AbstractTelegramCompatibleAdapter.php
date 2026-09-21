@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Log;
  */
 abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
 {
+    private bool $blockedByUser = false;
+
     public function __construct(
         protected readonly string $botToken,
     ) {}
@@ -101,6 +103,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
                 ->post($this->apiUrl('sendPhoto'), $payload);
 
             if ($response->failed()) {
+                $this->checkBlockedByUser($response);
                 Log::warning($this->platform().' sendPhoto failed', ['response' => $response->json()]);
             }
         } catch (ConnectionException $exception) {
@@ -131,6 +134,23 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
         ]));
     }
 
+    public function wasBlockedByUser(): bool
+    {
+        return $this->blockedByUser;
+    }
+
+    /**
+     * Telegram (and Bale, its API clone) report a user having blocked the
+     * bot as an HTTP-level failure: {"ok":false,"error_code":403,
+     * "description":"Forbidden: bot was blocked by the user"}.
+     */
+    private function checkBlockedByUser(\Illuminate\Http\Client\Response $response): void
+    {
+        if ($response->status() === 403 && str_contains(strtolower($response->json('description') ?? ''), 'blocked')) {
+            $this->blockedByUser = true;
+        }
+    }
+
     /**
      * @param  array<int, array<int, \App\DataTransferObjects\KeyboardButton>>  $keyboard
      */
@@ -156,6 +176,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
             $response = Http::timeout(5)->post($this->apiUrl($method), $payload);
 
             if ($response->failed()) {
+                $this->checkBlockedByUser($response);
                 Log::warning($this->platform()." {$method} failed", ['response' => $response->json()]);
             }
         } catch (ConnectionException $exception) {

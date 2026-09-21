@@ -32,6 +32,8 @@ use Illuminate\Support\Facades\Log;
  */
 class RubikaAdapter implements MessengerAdapter
 {
+    private bool $blockedByUser = false;
+
     public function __construct(
         private readonly string $botToken,
     ) {}
@@ -145,6 +147,18 @@ class RubikaAdapter implements MessengerAdapter
     }
 
     /**
+     * Best-effort only: unlike Telegram, Rubika's documentation doesn't
+     * describe what a "user blocked the bot" response looks like, and we've
+     * never actually encountered one in testing. This matches a status
+     * string containing "block" as a guess; if that never fires in
+     * practice, this will need revisiting once we actually see one.
+     */
+    public function wasBlockedByUser(): bool
+    {
+        return $this->blockedByUser;
+    }
+
+    /**
      * @param  array<int, array<int, \App\DataTransferObjects\KeyboardButton>>  $keyboard
      */
     private function buildInlineKeypad(array $keyboard): array
@@ -175,6 +189,9 @@ class RubikaAdapter implements MessengerAdapter
             $innerStatus = $body['data']['status'] ?? $body['status'] ?? null;
 
             if ($response->failed() || ($innerStatus !== null && $innerStatus !== 'OK')) {
+                if ($innerStatus !== null && str_contains(strtolower($innerStatus), 'block')) {
+                    $this->blockedByUser = true;
+                }
                 Log::warning("Rubika {$method} rejected", ['payload' => $payload, 'response' => $body]);
             }
         } catch (ConnectionException $exception) {

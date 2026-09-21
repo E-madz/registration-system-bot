@@ -45,4 +45,22 @@ class BotUser extends Model
     {
         return $this->hasOne(ConversationState::class);
     }
+
+    /**
+     * Cancels every currently-confirmed registration this user has across
+     * all programs, freeing up their capacity slots. Used when a user is
+     * banned or is detected to have blocked the bot - in both cases they
+     * can no longer be reached to complete/attend, so holding their spot
+     * doesn't make sense.
+     */
+    public function cancelAllConfirmedRegistrations(string $reason): void
+    {
+        $this->registrations()
+            ->where('status', Registration::STATUS_CONFIRMED)
+            ->update([
+                'status' => Registration::STATUS_CANCELED,
+                'canceled_at' => now(),
+                'canceled_reason' => $reason,
+            ]);
+    }
 }

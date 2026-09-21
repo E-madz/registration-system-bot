@@ -41,13 +41,29 @@ class BotConversationService
             ],
         );
 
-        if ($update->isCallback()) {
-            $this->handleCallback($botUser, $update, $adapter);
+        try {
+            if ($botUser->is_banned) {
+                $adapter->sendMessage($botUser->chat_id, 'شما از استفاده از این ربات محروم شده‌اید.');
 
-            return;
+                return;
+            }
+
+            if ($update->isCallback()) {
+                $this->handleCallback($botUser, $update, $adapter);
+
+                return;
+            }
+
+            $this->handleText($botUser, $update, $adapter);
+        } finally {
+            // Best-effort: if any send during this request failed because
+            // the user has blocked the bot, record it and free up whatever
+            // spot they were holding - they can no longer be reached.
+            if ($adapter->wasBlockedByUser()) {
+                $botUser->update(['is_blocked' => true, 'blocked_at' => now()]);
+                $botUser->cancelAllConfirmedRegistrations(Registration::REASON_BOT_BLOCKED);
+            }
         }
-
-        $this->handleText($botUser, $update, $adapter);
     }
 
     private function handleText(BotUser $botUser, IncomingUpdate $update, MessengerAdapter $adapter): void
@@ -350,7 +366,11 @@ class BotConversationService
             return;
         }
 
-        $registration->update(['status' => Registration::STATUS_CANCELED, 'canceled_at' => now()]);
+        $registration->update([
+            'status' => Registration::STATUS_CANCELED,
+            'canceled_at' => now(),
+            'canceled_reason' => Registration::REASON_SELF,
+        ]);
 
         $adapter->sendMessage($botUser->chat_id, 'ثبت‌نام شما لغو شد. در صورت تمایل می‌توانید دوباره ثبت‌نام کنید.');
     }

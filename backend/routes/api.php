@@ -1,8 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BotUserController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ProgramController;
 use App\Http\Controllers\Api\ProgramFieldController;
+use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\BaleWebhookController;
 use App\Http\Controllers\RubikaWebhookController;
 use App\Http\Controllers\TelegramWebhookController;
@@ -18,6 +21,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 
+    Route::get('/dashboard', [DashboardController::class, 'index']);
+
     Route::apiResource('programs', ProgramController::class);
     Route::patch('/programs/{program}/status', [ProgramController::class, 'updateStatus']);
     Route::post('/programs/{program}/media', [ProgramController::class, 'uploadMedia']);
@@ -28,4 +33,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/programs/{program}/fields/reorder', [ProgramFieldController::class, 'reorder']);
     Route::put('/programs/{program}/fields/{field}', [ProgramFieldController::class, 'update']);
     Route::delete('/programs/{program}/fields/{field}', [ProgramFieldController::class, 'destroy']);
+
+    Route::patch('/bot-users/{botUser}/ban', [BotUserController::class, 'ban']);
+    Route::patch('/bot-users/{botUser}/unban', [BotUserController::class, 'unban']);
+
+    Route::get('/programs/{program}/registrations', [RegistrationController::class, 'index']);
+    Route::get('/programs/{program}/registrations/export', [RegistrationController::class, 'export']);
+    Route::get('/programs/{program}/registrations/{registration}', [RegistrationController::class, 'show']);
+    Route::patch('/programs/{program}/registrations/{registration}/cancel', [RegistrationController::class, 'cancel']);
 });
