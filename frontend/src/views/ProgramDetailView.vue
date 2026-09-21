@@ -48,6 +48,8 @@ const program = reactive({
   success_message: '',
   status: 'draft',
   media_url: null,
+  has_registrations: false,
+  confirmed_registrations_count: 0,
 })
 const fields = ref([])
 const loading = ref(true)
@@ -81,6 +83,7 @@ const editField = reactive({
   is_required: false,
   min: '',
   max: '',
+  lockedOptionsCount: 0,
 })
 const editFieldError = ref('')
 const savingField = ref(false)
@@ -88,6 +91,7 @@ const savingField = ref(false)
 const dragIndex = ref(null)
 
 const availableTransitions = computed(() => TRANSITIONS[program.status] || [])
+const fieldsLocked = computed(() => program.has_registrations)
 
 /**
  * The API returns datetime fields as ISO 8601 UTC (e.g.
@@ -248,6 +252,7 @@ function startEditField(field) {
     is_required: field.is_required,
     min: field.validation_rules?.min ?? '',
     max: field.validation_rules?.max ?? '',
+    lockedOptionsCount: fieldsLocked.value ? (field.options || []).length : 0,
   })
 }
 
@@ -315,7 +320,13 @@ onMounted(loadProgram)
         <label class="span-2">توضیحات<textarea v-model="program.description"></textarea></label>
         <label>شروع ثبت‌نام (به‌وقت تهران)<input v-model="program.registration_starts_at" type="datetime-local" /></label>
         <label>پایان ثبت‌نام (به‌وقت تهران)<input v-model="program.registration_ends_at" type="datetime-local" /></label>
-        <label class="span-2">ظرفیت<input v-model.number="program.capacity" type="number" min="1" placeholder="نامحدود" /></label>
+        <label class="span-2">
+          ظرفیت
+          <input v-model.number="program.capacity" type="number" :min="Math.max(1, program.confirmed_registrations_count)" placeholder="نامحدود" />
+          <span v-if="program.confirmed_registrations_count > 0" class="muted">
+            نمی‌تواند کمتر از {{ program.confirmed_registrations_count }} (تعداد ثبت‌نام تاییدشده‌ی فعلی) شود.
+          </span>
+        </label>
         <label class="span-2">پیام موفقیت<textarea v-model="program.success_message" placeholder="پس از ثبت‌نام موفق به کاربر نمایش داده می‌شود"></textarea></label>
       </div>
       <div class="row">
@@ -355,6 +366,10 @@ onMounted(loadProgram)
     <section class="card">
       <h2>فیلدهای ثبت‌نام</h2>
       <p class="muted">برای تغییر ترتیب، هر ردیف را بگیر و بکش.</p>
+      <p v-if="fieldsLocked" class="alert alert-error">
+        🔒 چون این برنامه قبلاً ثبت‌نام داشته ({{ program.confirmed_registrations_count }} ثبت‌نام تاییدشده)، فقط برچسب/متن راهنما قابل ویرایش،
+        حذف فیلد غیرممکن، و فیلد جدید فقط به‌صورت اختیاری قابل افزودن است.
+      </p>
       <div class="table-wrap">
       <table>
         <thead>
@@ -386,27 +401,37 @@ onMounted(loadProgram)
               <td>{{ field.is_required ? 'بله' : 'خیر' }}</td>
               <td class="actions">
                 <button class="small" @click="startEditField(field)">ویرایش</button>
-                <button class="danger small" @click="deleteField(field)">حذف</button>
+                <button
+                  class="danger small"
+                  :disabled="fieldsLocked"
+                  :title="fieldsLocked ? 'چون این برنامه قبلاً ثبت‌نام داشته، حذف فیلد ممکن نیست' : ''"
+                  @click="deleteField(field)"
+                >حذف</button>
               </td>
             </tr>
             <tr v-else class="edit-row">
               <td colspan="6">
                 <div class="field-form">
                   <input v-model="editField.label" placeholder="برچسب" maxlength="40" required />
-                  <input v-model="editField.key" placeholder="key (فقط حروف لاتین کوچک و _)" required />
-                  <select v-model="editField.type">
+                  <input v-model="editField.key" placeholder="key (فقط حروف لاتین کوچک و _)" required :disabled="fieldsLocked" />
+                  <select v-model="editField.type" :disabled="fieldsLocked">
                     <option v-for="t in FIELD_TYPES" :key="t" :value="t">{{ FIELD_TYPE_LABELS[t] }}</option>
                   </select>
                   <input v-model="editField.help_text" placeholder="متن راهنما" maxlength="50" />
                   <template v-if="RANGE_TYPES.includes(editField.type)">
-                    <input v-model.number="editField.min" type="number" placeholder="حداقل (اختیاری)" />
-                    <input v-model.number="editField.max" type="number" placeholder="حداکثر (اختیاری)" />
+                    <input v-model.number="editField.min" type="number" placeholder="حداقل (اختیاری)" :disabled="fieldsLocked" />
+                    <input v-model.number="editField.max" type="number" placeholder="حداکثر (اختیاری)" :disabled="fieldsLocked" />
                   </template>
-                  <label class="checkbox"><input v-model="editField.is_required" type="checkbox" /> اجباری</label>
+                  <label class="checkbox"><input v-model="editField.is_required" type="checkbox" :disabled="fieldsLocked" /> اجباری</label>
                   <div v-if="CHOICE_TYPES.includes(editField.type)" class="options-editor span-full">
                     <div v-for="(opt, i) in editField.options" :key="i" class="option-row">
-                      <input v-model="editField.options[i]" placeholder="گزینه" />
-                      <button type="button" class="ghost small" @click="editField.options.splice(i, 1)">✕</button>
+                      <input v-model="editField.options[i]" placeholder="گزینه" :disabled="fieldsLocked && i < editField.lockedOptionsCount" />
+                      <button
+                        type="button"
+                        class="ghost small"
+                        :disabled="fieldsLocked && i < editField.lockedOptionsCount"
+                        @click="editField.options.splice(i, 1)"
+                      >✕</button>
                     </div>
                     <button type="button" class="small ghost" @click="editField.options.push('')">+ افزودن گزینه</button>
                   </div>
@@ -415,6 +440,7 @@ onMounted(loadProgram)
                     <button class="ghost small" @click="cancelEditField">انصراف</button>
                   </div>
                 </div>
+                <p v-if="fieldsLocked" class="muted">🔒 چون این برنامه قبلاً ثبت‌نام داشته، فقط برچسب/متن راهنما و افزودن گزینه‌ی جدید قابل تغییر است.</p>
                 <p v-if="editFieldError" class="alert alert-error">{{ editFieldError }}</p>
               </td>
             </tr>
@@ -438,7 +464,9 @@ onMounted(loadProgram)
           <input v-model.number="newField.min" type="number" placeholder="حداقل (اختیاری)" />
           <input v-model.number="newField.max" type="number" placeholder="حداکثر (اختیاری)" />
         </template>
-        <label class="checkbox"><input v-model="newField.is_required" type="checkbox" /> اجباری</label>
+        <label class="checkbox" :title="fieldsLocked ? 'چون این برنامه قبلاً ثبت‌نام داشته، فیلد جدید فقط اختیاری می‌تواند باشد' : ''">
+          <input v-model="newField.is_required" type="checkbox" :disabled="fieldsLocked" /> اجباری
+        </label>
         <div v-if="CHOICE_TYPES.includes(newField.type)" class="options-editor span-full">
           <div v-for="(opt, i) in newField.options" :key="i" class="option-row">
             <input v-model="newField.options[i]" placeholder="گزینه" />

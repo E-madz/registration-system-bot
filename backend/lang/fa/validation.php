@@ -22,6 +22,7 @@ return [
     'array' => ':attribute باید به‌صورت آرایه باشد.',
     'date' => ':attribute یک تاریخ معتبر نیست.',
     'after_or_equal' => ':attribute باید بعد یا برابر با :date باشد.',
+    'after' => ':attribute باید بعد از :date باشد.',
     'email' => 'فرمت :attribute صحیح نیست.',
     'regex' => 'فرمت :attribute صحیح نیست.',
     'unique' => 'این مقدار برای :attribute قبلاً استفاده شده است.',

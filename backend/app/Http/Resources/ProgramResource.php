@@ -21,6 +21,8 @@ class ProgramResource extends JsonResource
             'requires_approval' => $this->requires_approval,
             'success_message' => $this->success_message,
             'media_url' => $this->media_url,
+            'has_registrations' => $this->hasAnyRegistration(),
+            'confirmed_registrations_count' => $this->confirmedRegistrationsCount(),
             'fields' => ProgramFieldResource::collection($this->whenLoaded('fields')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

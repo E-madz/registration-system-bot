@@ -34,7 +34,14 @@ class StoreProgramFieldRequest extends FormRequest
                 'array',
             ],
             'options.*' => ['string'],
-            'is_required' => ['sometimes', 'boolean'],
+            'is_required' => [
+                'sometimes', 'boolean',
+                function ($attribute, $value, $fail) {
+                    if ($value && $this->route('program')->hasAnyRegistration()) {
+                        $fail('چون این برنامه قبلاً ثبت‌نام داشته، فیلد جدید فقط می‌تواند اختیاری باشد.');
+                    }
+                },
+            ],
             'order' => ['nullable', 'integer', 'min:0'],
             'validation_rules' => ['nullable', 'array'],
             'validation_rules.min' => ['nullable', 'integer', 'min:0'],

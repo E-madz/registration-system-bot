@@ -87,6 +87,17 @@ class Program extends Model
     }
 
     /**
+     * Whether anyone has ever registered for this program, regardless of
+     * current status (including canceled) - once true, structural edits to
+     * this program's fields become locked, since RegistrationAnswer rows
+     * already exist that were shaped by the fields as they were at that time.
+     */
+    public function hasAnyRegistration(): bool
+    {
+        return $this->registrations()->exists();
+    }
+
+    /**
      * Null capacity means unlimited.
      */
     public function remainingCapacity(): ?int

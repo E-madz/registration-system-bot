@@ -40,6 +40,12 @@ class ProgramFieldController extends Controller
     {
         $this->ensureFieldBelongsToProgram($program, $field);
 
+        if ($program->hasAnyRegistration()) {
+            return response()->json([
+                'message' => 'چون این برنامه قبلاً ثبت‌نام داشته، امکان حذف فیلدهای موجود وجود ندارد.',
+            ], 422);
+        }
+
         $field->delete();
 
         return response()->json(null, 204);
