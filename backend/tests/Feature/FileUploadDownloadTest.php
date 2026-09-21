@@ -83,6 +83,33 @@ class FileUploadDownloadTest extends TestCase
         $this->assertSame('fake-image-bytes', Storage::disk('public')->get($answer->value['stored_path']));
     }
 
+    public function test_guesses_the_extension_from_content_type_when_the_file_path_has_none(): void
+    {
+        // Mirrors Rubika's real download_url, which has no file extension
+        // in the path at all - unlike Telegram, used here only because
+        // Telegram's adapter is easiest to drive through the webhook.
+        Http::fake([
+            'api.telegram.org/*/getFile*' => Http::response([
+                'ok' => true, 'result' => ['file_path' => 'files/AgAC-no-extension-here'],
+            ]),
+            'api.telegram.org/file/*' => Http::response('fake-image-bytes', 200, ['Content-Type' => 'image/jpeg']),
+            '*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        ProgramField::factory()->create([
+            'program_id' => $program->id, 'key' => 'id_card', 'label' => 'ID card photo',
+            'type' => 'file', 'is_required' => true, 'order' => 0,
+        ]);
+
+        $this->sendCallback("register-{$program->id}");
+        $this->sendPhoto();
+        $this->sendCallback('confirm_registration');
+
+        $answer = Registration::first()->answers()->where('field_key', 'id_card')->first();
+        $this->assertStringEndsWith('.jpg', $answer->value['stored_path']);
+    }
+
     public function test_still_registers_successfully_when_the_download_itself_fails(): void
     {
         Http::fake([

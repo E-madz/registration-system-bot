@@ -34,6 +34,9 @@ use Illuminate\Support\Str;
  */
 class RubikaAdapter implements MessengerAdapter
 {
+    use GuessesFileExtension;
+
+
     private bool $blockedByUser = false;
 
     public function __construct(
@@ -191,7 +194,7 @@ class RubikaAdapter implements MessengerAdapter
                 return null;
             }
 
-            $extension = pathinfo(parse_url($downloadUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION) ?: 'bin';
+            $extension = $this->guessExtension(parse_url($downloadUrl, PHP_URL_PATH) ?: null, $fileResponse->header('Content-Type'));
             $storedPath = 'registration-uploads/rubika/'.Str::uuid().'.'.$extension;
             Storage::disk('public')->put($storedPath, $fileResponse->body());
 

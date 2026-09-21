@@ -18,6 +18,8 @@ use Illuminate\Support\Str;
  */
 abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
 {
+    use GuessesFileExtension;
+
     private bool $blockedByUser = false;
 
     public function __construct(
@@ -177,7 +179,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
                 return null;
             }
 
-            $extension = pathinfo($filePath, PATHINFO_EXTENSION) ?: 'bin';
+            $extension = $this->guessExtension($filePath, $fileResponse->header('Content-Type'));
             $storedPath = 'registration-uploads/'.$this->platform().'/'.Str::uuid().'.'.$extension;
             Storage::disk('public')->put($storedPath, $fileResponse->body());
 
