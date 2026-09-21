@@ -235,7 +235,8 @@ class BotConversationService
 
         [$statusLine, $buttons] = $this->resolveProgramState($program, $hasConfirmed, $botUser);
 
-        $text = "{$program->title}\n\n".($program->description ?? '')."\n\n{$statusLine}";
+        $parts = array_filter([$program->title, $program->description, $statusLine]);
+        $text = implode("\n\n", $parts);
 
         if ($program->media_path) {
             $adapter->sendPhoto($chatId, storage_path('app/public/'.$program->media_path), trim($text), $buttons);
@@ -251,13 +252,21 @@ class BotConversationService
     {
         $backButton = new KeyboardButton('🔙 بازگشت به لیست برنامه‌ها', 'back_to_programs');
 
+        $registration = $hasConfirmed
+            ? Registration::query()
+                ->where('bot_user_id', $botUser->id)
+                ->where('program_id', $program->id)
+                ->where('status', Registration::STATUS_CONFIRMED)
+                ->first()
+            : null;
+
         if ($program->status === Program::STATUS_CANCELED) {
             return ['❌ متأسفانه این برنامه توسط برگزارکننده لغو شده است.', [[$backButton]]];
         }
 
         if ($program->status === Program::STATUS_CLOSED) {
             $status = $hasConfirmed
-                ? "🔒 مهلت ثبت‌نام پایان یافته است.\n✅ ثبت‌نام شما نهایی بوده است."
+                ? "🔒 مهلت ثبت‌نام پایان یافته است.\n✅ ثبت‌نام شما نهایی بوده است.\n🎫 کد پیگیری: {$registration->tracking_code}"
                 : '🔒 مهلت ثبت‌نام این برنامه پایان یافته است.';
 
             return [$status, [[$backButton]]];
@@ -265,14 +274,8 @@ class BotConversationService
 
         // published
         if ($hasConfirmed) {
-            $registration = Registration::query()
-                ->where('bot_user_id', $botUser->id)
-                ->where('program_id', $program->id)
-                ->where('status', Registration::STATUS_CONFIRMED)
-                ->first();
-
             return [
-                '✅ وضعیت شما: ثبت‌نام قطعی شده است.',
+                "✅ وضعیت شما: ثبت‌نام قطعی شده است.\n🎫 کد پیگیری: {$registration->tracking_code}",
                 [[
                     new KeyboardButton('❌ انصراف از برنامه', "cancel_registration:{$registration->id}"),
                     $backButton,
@@ -285,11 +288,13 @@ class BotConversationService
         if ($window === 'not_started') {
             $date = $program->registration_starts_at?->format('Y-m-d H:i');
 
-            return ["⏳ ثبت‌نام این برنامه هنوز آغاز نشده است. تاریخ شروع: {$date}", [[$backButton]]];
+            return ["⏳ ثبت‌نام این برنامه هنوز آغاز نشده است.\nتاریخ شروع ثبت‌نام: {$date}", [[$backButton]]];
         }
 
         if ($window === 'ended') {
-            return ['⌛ مهلت ثبت‌نام این برنامه به پایان رسیده است.', [[$backButton]]];
+            $date = $program->registration_ends_at?->format('Y-m-d H:i');
+
+            return ["⌛ مهلت ثبت‌نام این برنامه به پایان رسیده است.\nپایان مهلت: {$date}", [[$backButton]]];
         }
 
         if (! $program->hasCapacity()) {
@@ -299,6 +304,10 @@ class BotConversationService
         $capacityLine = $program->capacity !== null
             ? "👥 ظرفیت باقی‌مانده: {$program->remainingCapacity()} نفر از {$program->capacity} نفر."
             : '👥 ثبت‌نام برای این برنامه باز است.';
+
+        if ($program->registration_ends_at) {
+            $capacityLine .= "\n⏰ مهلت ثبت‌نام تا: {$program->registration_ends_at->format('Y-m-d H:i')}";
+        }
 
         return [$capacityLine, [
             [new KeyboardButton('ثبت‌نام در این برنامه', "register:{$program->id}")],

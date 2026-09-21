@@ -20,14 +20,20 @@ class RegistrationFlowService
     {
         $chatId = $botUser->external_id;
 
-        if ($this->hasConfirmedRegistration($botUser, $program)) {
-            $adapter->sendMessage($chatId, 'شما قبلاً برای این مورد ثبت‌نام کرده‌اید.');
+        $existing = Registration::query()
+            ->where('bot_user_id', $botUser->id)
+            ->where('program_id', $program->id)
+            ->where('status', Registration::STATUS_CONFIRMED)
+            ->first();
+
+        if ($existing) {
+            $adapter->sendMessage($chatId, "شما قبلاً برای این مورد ثبت‌نام کرده‌اید.\n🎫 کد پیگیری: {$existing->tracking_code}");
 
             return;
         }
 
         if (! $program->isAcceptingRegistrations()) {
-            $adapter->sendMessage($chatId, 'متأسفانه امکان ثبت‌نام برای این مورد در حال حاضر وجود ندارد.');
+            $adapter->sendMessage($chatId, $this->unavailabilityReason($program));
 
             return;
         }
@@ -124,13 +130,25 @@ class RegistrationFlowService
         $adapter->sendMessage($chatId, 'ثبت‌نام لغو شد.');
     }
 
-    private function hasConfirmedRegistration(BotUser $botUser, Program $program): bool
+    private function unavailabilityReason(Program $program): string
     {
-        return Registration::query()
-            ->where('bot_user_id', $botUser->id)
-            ->where('program_id', $program->id)
-            ->where('status', Registration::STATUS_CONFIRMED)
-            ->exists();
+        if ($program->status !== Program::STATUS_PUBLISHED) {
+            return 'این مورد دیگر برای ثبت‌نام در دسترس نیست.';
+        }
+
+        $window = $program->registrationWindowState();
+
+        if ($window === 'not_started') {
+            $date = $program->registration_starts_at?->format('Y-m-d H:i');
+
+            return "ثبت‌نام این برنامه هنوز آغاز نشده است. تاریخ شروع: {$date}";
+        }
+
+        if ($window === 'ended') {
+            return 'متأسفانه مهلت ثبت‌نام این برنامه به پایان رسیده است.';
+        }
+
+        return 'متأسفانه ظرفیت این برنامه تکمیل شده است و امکان ثبت‌نام وجود ندارد.';
     }
 
     private function orderedFields(Program $program)
@@ -144,10 +162,13 @@ class RegistrationFlowService
         $fields = $this->orderedFields($state->program);
         $index = $fields->search(fn (ProgramField $f) => $f->id === $field->id);
 
-        $text = "سوال ".($index + 1)." از {$fields->count()}\n{$field->label}";
+        $requiredMarker = $field->is_required ? ' (اجباری)' : ' (اختیاری)';
+        $text = "سوال ".($index + 1)." از {$fields->count()}\n{$field->label}{$requiredMarker}";
 
         if ($field->help_text) {
             $text .= "\n{$field->help_text}";
+        } elseif ($hint = $this->defaultHint($field->type)) {
+            $text .= "\n{$hint}";
         }
 
         $previousAnswer = $state->answers[$field->key] ?? null;
@@ -195,10 +216,21 @@ class RegistrationFlowService
         $rules = $field->validation_rules ?? [];
 
         return match ($field->type) {
-            'email' => filter_var($value, FILTER_VALIDATE_EMAIL) ? null : 'فرمت ایمیل صحیح نیست. دوباره وارد کنید.',
+            'email' => filter_var($value, FILTER_VALIDATE_EMAIL) ? null : 'فرمت ایمیل صحیح نیست. مثال: name@example.com',
             'number' => is_numeric($value) ? null : 'لطفاً فقط عدد وارد کنید.',
-            'phone' => preg_match('/^[0-9+\-() ]{7,15}$/', $value) ? null : 'فرمت شماره تماس صحیح نیست.',
+            'phone' => preg_match('/^[0-9+\-() ]{7,15}$/', $value) ? null : 'فرمت شماره تماس صحیح نیست. مثال: 09123456789',
             'text', 'textarea' => $this->validateLength($value, $rules),
+            default => null,
+        };
+    }
+
+    private function defaultHint(string $type): ?string
+    {
+        return match ($type) {
+            'email' => 'مثال: name@example.com',
+            'phone' => 'مثال: 09123456789',
+            'number' => 'لطفاً فقط عدد وارد کنید.',
+            'date' => 'فرمت: 1404/05/12',
             default => null,
         };
     }
@@ -394,7 +426,7 @@ class RegistrationFlowService
 
         if (! $program->isAcceptingRegistrations()) {
             $state->delete();
-            $adapter->sendMessage($chatId, 'متأسفانه ظرفیت یا مهلت این مورد در همین فاصله تمام شد.');
+            $adapter->sendMessage($chatId, $this->unavailabilityReason($program));
 
             return;
         }
