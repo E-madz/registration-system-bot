@@ -6,21 +6,39 @@ import apiClient from '../api/client'
 const programs = ref([])
 const newTitle = ref('')
 const error = ref('')
+const loading = ref(true)
+const creating = ref(false)
 const router = useRouter()
 
+const STATUS_LABELS = {
+  draft: 'پیش‌نویس',
+  published: 'منتشرشده',
+  closed: 'بسته‌شده',
+  canceled: 'لغوشده',
+  archived: 'بایگانی',
+}
+
 async function loadPrograms() {
-  const { data } = await apiClient.get('/programs')
-  programs.value = data.data
+  loading.value = true
+  try {
+    const { data } = await apiClient.get('/programs')
+    programs.value = data.data
+  } finally {
+    loading.value = false
+  }
 }
 
 async function createProgram() {
   error.value = ''
+  creating.value = true
   try {
     await apiClient.post('/programs', { title: newTitle.value })
     newTitle.value = ''
     await loadPrograms()
   } catch (e) {
     error.value = e.response?.data?.message || 'خطا در ساخت مورد.'
+  } finally {
+    creating.value = false
   }
 }
 
@@ -43,89 +61,65 @@ onMounted(loadPrograms)
 
 <template>
   <div class="page">
-    <h1>موارد ثبت‌نام (Programs)</h1>
+    <div class="card-header">
+      <h1>موارد ثبت‌نام</h1>
+    </div>
 
-    <form class="create-form" @submit.prevent="createProgram">
-      <input v-model="newTitle" placeholder="عنوان مورد جدید" required maxlength="40" />
-      <button type="submit">ساخت</button>
-    </form>
-    <p v-if="error" class="error">{{ error }}</p>
+    <section class="card">
+      <h2>ساخت مورد جدید</h2>
+      <form class="create-form" @submit.prevent="createProgram">
+        <input v-model="newTitle" placeholder="عنوان مورد جدید" required maxlength="40" />
+        <button type="submit" class="primary" :disabled="creating">{{ creating ? 'در حال ساخت...' : 'ساخت' }}</button>
+      </form>
+      <p v-if="error" class="alert alert-error">{{ error }}</p>
+    </section>
 
-    <table>
-      <thead>
-        <tr>
-          <th>عنوان</th>
-          <th>slug</th>
-          <th>وضعیت</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="program in programs" :key="program.id">
-          <td>{{ program.title }}</td>
-          <td>{{ program.slug }}</td>
-          <td><span class="badge" :class="program.status">{{ program.status }}</span></td>
-          <td class="actions">
-            <button @click="openProgram(program)">مشاهده/ویرایش</button>
-            <button v-if="program.status === 'draft'" class="danger" @click="deleteProgram(program)">حذف</button>
-          </td>
-        </tr>
-        <tr v-if="programs.length === 0">
-          <td colspan="4">هنوز موردی ثبت نشده.</td>
-        </tr>
-      </tbody>
-    </table>
+    <section class="card">
+      <div v-if="loading" class="spinner-wrap"><div class="spinner"></div></div>
+      <div v-else class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>عنوان</th>
+            <th>slug</th>
+            <th>وضعیت</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="program in programs" :key="program.id" class="clickable" @click="openProgram(program)">
+            <td>{{ program.title }}</td>
+            <td class="muted">{{ program.slug }}</td>
+            <td><span class="badge" :class="program.status">{{ STATUS_LABELS[program.status] || program.status }}</span></td>
+            <td class="actions" @click.stop>
+              <button class="small" @click="openProgram(program)">مشاهده/ویرایش</button>
+              <button v-if="program.status === 'draft'" class="danger small" @click="deleteProgram(program)">حذف</button>
+            </td>
+          </tr>
+          <tr v-if="programs.length === 0" class="empty-row">
+            <td colspan="4">هنوز موردی ثبت نشده. از فرم بالا یک مورد جدید بساز.</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.page {
-  max-width: 900px;
-  margin: 40px auto;
-  padding: 0 16px;
-}
 .create-form {
   display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 10px;
 }
 .create-form input {
   flex: 1;
-  padding: 8px;
 }
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th, td {
-  text-align: right;
-  padding: 8px;
-  border-bottom: 1px solid #eee;
-}
-.badge {
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  background: #eee;
-}
-.badge.published { background: #d4edda; }
-.badge.draft { background: #fff3cd; }
-.badge.closed { background: #f8d7da; }
-.badge.canceled { background: #f5c6cb; }
-.badge.archived { background: #e2e3e5; }
 .actions {
   display: flex;
   gap: 8px;
+  justify-content: flex-end;
 }
-.danger {
-  color: #c0392b;
-}
-.error {
-  color: #c0392b;
-  font-size: 13px;
-}
-button {
+tr.clickable {
   cursor: pointer;
-  padding: 6px 10px;
 }
 </style>

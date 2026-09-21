@@ -13,8 +13,8 @@ async function handleLogout() {
 
 <template>
   <nav v-if="auth.isAuthenticated" class="nav">
-    <span>پنل ادمین</span>
-    <button @click="handleLogout">خروج</button>
+    <span class="brand">🎫 پنل ادمین ثبت‌نام</span>
+    <button class="ghost small" @click="handleLogout">خروج</button>
   </nav>
   <router-view />
 </template>
@@ -24,11 +24,16 @@ async function handleLogout() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 24px;
-  border-bottom: 1px solid #ddd;
+  padding: 14px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
-button {
-  cursor: pointer;
-  padding: 6px 10px;
+.brand {
+  font-weight: 700;
+  font-size: 15px;
 }
 </style>

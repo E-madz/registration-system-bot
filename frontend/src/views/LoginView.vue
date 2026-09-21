@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
-const email = ref('test@example.com')
+const email = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
@@ -27,18 +27,22 @@ async function submit() {
 
 <template>
   <div class="login-page">
-    <form class="login-form" @submit.prevent="submit">
-      <h1>ورود ادمین</h1>
+    <form class="login-form card" @submit.prevent="submit">
+      <div class="login-header">
+        <div class="login-icon">🎫</div>
+        <h1>ورود ادمین</h1>
+        <p class="muted">برای مدیریت برنامه‌های ثبت‌نام وارد شوید.</p>
+      </div>
       <label>
         ایمیل
-        <input v-model="email" type="email" required />
+        <input v-model="email" type="email" autocomplete="username" required />
       </label>
       <label>
         رمز عبور
-        <input v-model="password" type="password" required />
+        <input v-model="password" type="password" autocomplete="current-password" required />
       </label>
-      <p v-if="error" class="error">{{ error }}</p>
-      <button type="submit" :disabled="loading">{{ loading ? '...' : 'ورود' }}</button>
+      <p v-if="error" class="alert alert-error">{{ error }}</p>
+      <button type="submit" class="primary" :disabled="loading">{{ loading ? 'در حال ورود...' : 'ورود' }}</button>
     </form>
   </div>
 </template>
@@ -49,32 +53,23 @@ async function submit() {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+  padding: 20px;
 }
 .login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 300px;
-  padding: 24px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  width: 100%;
+  max-width: 340px;
 }
-label {
+.login-header {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 14px;
+  margin-bottom: 4px;
 }
-input {
-  padding: 8px;
-  font-size: 14px;
+.login-icon {
+  font-size: 28px;
+  margin-bottom: 4px;
 }
-button {
-  padding: 10px;
-  cursor: pointer;
-}
-.error {
-  color: #c0392b;
-  font-size: 13px;
+button[type='submit'] {
+  width: 100%;
 }
 </style>
