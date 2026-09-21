@@ -83,14 +83,17 @@ class RubikaWebhookTest extends TestCase
             && isset($request['chat_keypad']));
     }
 
-    public function test_chat_keypad_button_tap_is_treated_as_a_callback(): void
+    public function test_chat_keypad_main_menu_button_tap_is_treated_as_its_label_text(): void
     {
-        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        // A chat_keypad (persistent reply keyboard) tap arrives as
+        // aux_data.button_id, whose value is the button's own label — the
+        // main menu's buttons are the only chat_keypad buttons we ever send.
+        Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
 
-        $this->sendButtonTap("program:{$program->id}");
+        $this->sendButtonTap('📋 مشاهده همه رویدادهای فعال');
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
-            && str_contains($request['text'] ?? '', $program->title));
+            && str_contains($request['text'] ?? '', 'این لیست برنامه‌های قابل ثبت‌نام است'));
     }
 
     public function test_inline_keypad_button_tap_is_treated_as_a_callback(): void

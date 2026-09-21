@@ -50,15 +50,21 @@ class RubikaAdapter implements MessengerAdapter
 
         $update = $data['update'] ?? [];
         $message = $update['new_message'] ?? [];
-        $buttonId = $message['aux_data']['button_id'] ?? null;
+
+        // A chat_keypad (persistent reply keyboard) tap arrives here as
+        // aux_data.button_id, not via `inline_message`. Since our chat_keypad
+        // buttons are only ever the main-menu ones and their id IS their
+        // label (see RubikaAdapter::sendReplyKeyboard/buildKeypad below),
+        // this is equivalent to the user having typed that label as text —
+        // not one of our internal "action:argument" callbacks, which only
+        // ever arrive via `inline_message`.
+        $chatKeypadButtonText = $message['aux_data']['button_id'] ?? null;
 
         return new IncomingUpdate(
             platform: $this->platform(),
             chatId: (string) ($update['chat_id'] ?? ''),
             externalUserId: (string) ($message['sender_id'] ?? ''),
-            text: $buttonId ? null : ($message['text'] ?? null),
-            callbackData: $buttonId,
-            callbackQueryId: $buttonId ? (string) ($message['message_id'] ?? uniqid('rubika_', true)) : null,
+            text: $chatKeypadButtonText ?? ($message['text'] ?? null),
             fileId: $message['file']['file_id'] ?? null,
             fileType: isset($message['file']) ? 'file' : null,
         );
