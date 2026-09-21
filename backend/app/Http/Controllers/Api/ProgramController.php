@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreProgramRequest;
 use App\Http\Requests\UpdateProgramRequest;
 use App\Http\Requests\UpdateProgramStatusRequest;
+use App\Http\Requests\UploadProgramMediaRequest;
 use App\Http\Resources\ProgramResource;
 use App\Models\Program;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProgramController extends Controller
 {
@@ -62,6 +64,28 @@ class ProgramController extends Controller
         }
 
         $program->update(['status' => $status]);
+
+        return new ProgramResource($program);
+    }
+
+    public function uploadMedia(UploadProgramMediaRequest $request, Program $program)
+    {
+        if ($program->media_path) {
+            Storage::disk('public')->delete($program->media_path);
+        }
+
+        $path = $request->file('media')->store('programs/media', 'public');
+        $program->update(['media_path' => $path]);
+
+        return new ProgramResource($program);
+    }
+
+    public function deleteMedia(Program $program)
+    {
+        if ($program->media_path) {
+            Storage::disk('public')->delete($program->media_path);
+            $program->update(['media_path' => null]);
+        }
 
         return new ProgramResource($program);
     }

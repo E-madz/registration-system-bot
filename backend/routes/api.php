@@ -16,6 +16,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('programs', ProgramController::class);
     Route::patch('/programs/{program}/status', [ProgramController::class, 'updateStatus']);
+    Route::post('/programs/{program}/media', [ProgramController::class, 'uploadMedia']);
+    Route::delete('/programs/{program}/media', [ProgramController::class, 'deleteMedia']);
 
     Route::get('/programs/{program}/fields', [ProgramFieldController::class, 'index']);
     Route::post('/programs/{program}/fields', [ProgramFieldController::class, 'store']);

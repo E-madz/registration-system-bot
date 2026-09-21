@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Program extends Model
@@ -51,7 +52,10 @@ class Program extends Model
         'capacity',
         'requires_approval',
         'success_message',
+        'media_path',
     ];
+
+    protected $appends = ['media_url'];
 
     protected function casts(): array
     {
@@ -60,6 +64,11 @@ class Program extends Model
             'registration_ends_at' => 'datetime',
             'requires_approval' => 'boolean',
         ];
+    }
+
+    public function getMediaUrlAttribute(): ?string
+    {
+        return $this->media_path ? Storage::disk('public')->url($this->media_path) : null;
     }
 
     public function fields()

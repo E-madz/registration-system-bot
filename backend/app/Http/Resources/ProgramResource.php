@@ -20,6 +20,7 @@ class ProgramResource extends JsonResource
             'capacity' => $this->capacity,
             'requires_approval' => $this->requires_approval,
             'success_message' => $this->success_message,
+            'media_url' => $this->media_url,
             'fields' => ProgramFieldResource::collection($this->whenLoaded('fields')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
