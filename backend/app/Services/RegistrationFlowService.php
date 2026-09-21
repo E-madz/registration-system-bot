@@ -219,9 +219,20 @@ class RegistrationFlowService
             'email' => filter_var($value, FILTER_VALIDATE_EMAIL) ? null : 'فرمت ایمیل صحیح نیست. مثال: name@example.com',
             'number' => is_numeric($value) ? null : 'لطفاً فقط عدد وارد کنید.',
             'phone' => preg_match('/^[0-9+\-() ]{7,15}$/', $value) ? null : 'فرمت شماره تماس صحیح نیست. مثال: 09123456789',
+            'date' => $this->isValidDateShape($value) ? null : 'فرمت تاریخ صحیح نیست. مثال: 1404/05/12',
             'text', 'textarea' => $this->validateLength($value, $rules),
             default => null,
         };
+    }
+
+    /**
+     * Checks only that the value looks like a date (YYYY/MM/DD or YYYY-MM-DD
+     * with a plausible month/day range) — not tied to a specific calendar,
+     * since we don't validate real Jalali/Gregorian calendar math yet.
+     */
+    private function isValidDateShape(string $value): bool
+    {
+        return (bool) preg_match('/^\d{4}[\/-](0?[1-9]|1[0-2])[\/-](0?[1-9]|[12][0-9]|3[01])$/', $value);
     }
 
     private function defaultHint(string $type): ?string
@@ -230,7 +241,8 @@ class RegistrationFlowService
             'email' => 'مثال: name@example.com',
             'phone' => 'مثال: 09123456789',
             'number' => 'لطفاً فقط عدد وارد کنید.',
-            'date' => 'فرمت: 1404/05/12',
+            'date' => 'تاریخ را به‌صورت متن و با فرمت روز/ماه/سال وارد کنید. مثال: 1404/05/12',
+            'file' => 'لطفاً یک عکس یا فایل ارسال کنید.',
             default => null,
         };
     }

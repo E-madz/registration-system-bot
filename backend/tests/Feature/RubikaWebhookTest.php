@@ -103,6 +103,36 @@ class RubikaWebhookTest extends TestCase
             && str_contains($request['text'] ?? '', $program->title));
     }
 
+    public function test_file_field_accepts_an_uploaded_file_via_rubika(): void
+    {
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        ProgramField::factory()->create([
+            'program_id' => $program->id, 'key' => 'id_card', 'label' => 'ID card',
+            'type' => 'file', 'is_required' => true, 'order' => 0,
+        ]);
+
+        $this->sendInlineTap("register:{$program->id}");
+
+        $this->postJson('/api/webhook/rubika/test-secret', [
+            'update' => [
+                'type' => 'NewMessage',
+                'chat_id' => 'c111',
+                'new_message' => [
+                    'message_id' => 'm4',
+                    'sender_id' => 'u222',
+                    'file' => ['file_id' => 'rubika-file-1', 'file_name' => 'card.jpg', 'size' => 1024],
+                ],
+            ],
+        ])->assertOk();
+
+        $this->sendInlineTap('confirm_registration');
+
+        $registration = Registration::first();
+        $this->assertNotNull($registration);
+        $answer = $registration->answers()->where('field_key', 'id_card')->first();
+        $this->assertEquals('rubika-file-1', $answer->value['file_id']);
+    }
+
     public function test_full_registration_flow_via_rubika(): void
     {
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);

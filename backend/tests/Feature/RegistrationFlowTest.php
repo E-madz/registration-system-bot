@@ -54,6 +54,20 @@ class RegistrationFlowTest extends TestCase
         ])->assertOk();
     }
 
+    private function sendPhoto(): void
+    {
+        $this->postJson($this->webhookUrl(), [
+            'message' => [
+                'chat' => ['id' => 111],
+                'from' => ['id' => 222, 'first_name' => 'Emad'],
+                'photo' => [
+                    ['file_id' => 'small_file_id', 'width' => 90, 'height' => 90],
+                    ['file_id' => 'large_file_id', 'width' => 800, 'height' => 800],
+                ],
+            ],
+        ])->assertOk();
+    }
+
     public function test_happy_path_registers_with_a_required_text_field_and_optional_field(): void
     {
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
@@ -126,6 +140,63 @@ class RegistrationFlowTest extends TestCase
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', 'ایمیل'));
+    }
+
+    public function test_date_field_shows_format_hint_and_rejects_bad_input(): void
+    {
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        ProgramField::factory()->create([
+            'program_id' => $program->id, 'key' => 'birth_date', 'label' => 'Birth date',
+            'type' => 'date', 'is_required' => true, 'order' => 0,
+        ]);
+
+        $this->sendCallback("register:{$program->id}");
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', '1404/05/12'));
+
+        $this->sendMessage('not a date');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'فرمت تاریخ صحیح نیست'));
+
+        $this->sendMessage('1404/05/12');
+
+        $this->sendCallback('confirm_registration');
+
+        $registration = Registration::first();
+        $this->assertDatabaseHas('registration_answers', [
+            'registration_id' => $registration->id,
+            'field_key' => 'birth_date',
+        ]);
+    }
+
+    public function test_file_field_shows_hint_and_accepts_a_photo_upload(): void
+    {
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        ProgramField::factory()->create([
+            'program_id' => $program->id, 'key' => 'id_card', 'label' => 'ID card photo',
+            'type' => 'file', 'is_required' => true, 'order' => 0,
+        ]);
+
+        $this->sendCallback("register:{$program->id}");
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'عکس یا فایل ارسال کنید'));
+
+        // A plain text answer must be rejected for a file field.
+        $this->sendMessage('this is not a file');
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'لطفاً یک عکس یا فایل ارسال کنید.'));
+
+        $this->sendPhoto();
+        $this->sendCallback('confirm_registration');
+
+        $registration = Registration::first();
+        $this->assertNotNull($registration);
+        $answer = $registration->answers()->where('field_key', 'id_card')->first();
+        $this->assertEquals('large_file_id', $answer->value['file_id']);
+        $this->assertEquals('photo', $answer->value['type']);
     }
 
     public function test_back_button_returns_to_previous_field(): void
