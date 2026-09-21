@@ -13,7 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // This is an API-only backend with no "login" web route, so the
+        // default guest-redirect (which calls route('login')) would throw
+        // a RouteNotFoundException and turn every unauthenticated request
+        // into a 500 instead of a clean 401 JSON response.
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
