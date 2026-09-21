@@ -27,12 +27,15 @@ const program = reactive({
   requires_approval: false,
   success_message: '',
   status: 'draft',
+  media_url: null,
 })
 const fields = ref([])
 const loading = ref(true)
 const saveError = ref('')
 const saveMessage = ref('')
 const newStatus = ref('')
+const mediaError = ref('')
+const mediaUploading = ref(false)
 
 const newField = reactive({
   label: '',
@@ -72,6 +75,30 @@ async function saveProgram() {
   } catch (e) {
     saveError.value = e.response?.data?.message || 'خطا در ذخیره‌سازی.'
   }
+}
+
+async function uploadMedia(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  mediaError.value = ''
+  mediaUploading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('media', file)
+    const { data } = await apiClient.post(`/programs/${programId}/media`, formData)
+    program.media_url = data.data.media_url
+  } catch (e) {
+    mediaError.value = e.response?.data?.message || 'خطا در آپلود عکس.'
+  } finally {
+    mediaUploading.value = false
+    event.target.value = ''
+  }
+}
+
+async function deleteMedia() {
+  if (!confirm('عکس حذف بشه؟')) return
+  const { data } = await apiClient.delete(`/programs/${programId}/media`)
+  program.media_url = data.data.media_url
 }
 
 async function changeStatus() {
@@ -145,6 +172,16 @@ onMounted(loadProgram)
       <button @click="saveProgram">ذخیره</button>
       <p v-if="saveMessage" class="success">{{ saveMessage }}</p>
       <p v-if="saveError" class="error">{{ saveError }}</p>
+    </section>
+
+    <section class="card">
+      <h2>عکس برنامه</h2>
+      <img v-if="program.media_url" :src="program.media_url" alt="" class="media-preview" />
+      <p v-else>عکسی تنظیم نشده.</p>
+      <input type="file" accept="image/png,image/jpeg,image/webp" @change="uploadMedia" :disabled="mediaUploading" />
+      <button v-if="program.media_url" class="danger" @click="deleteMedia">حذف عکس</button>
+      <p v-if="mediaUploading">در حال آپلود...</p>
+      <p v-if="mediaError" class="error">{{ mediaError }}</p>
     </section>
 
     <section class="card">
@@ -292,5 +329,11 @@ th, td {
 .error {
   color: #c0392b;
   font-size: 13px;
+}
+.media-preview {
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: 6px;
+  object-fit: cover;
 }
 </style>
