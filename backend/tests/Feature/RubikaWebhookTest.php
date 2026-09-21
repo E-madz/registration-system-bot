@@ -41,11 +41,9 @@ class RubikaWebhookTest extends TestCase
     }
 
     /**
-     * Both chat_keypad (main menu) and inline_keypad (per-message button)
-     * taps arrive via this same "NewMessage" shape — see RubikaAdapter's
-     * docblock.
+     * A chat_keypad (persistent reply keyboard) tap — e.g. the main menu.
      */
-    private function sendButtonTap(string $buttonId): void
+    private function sendChatKeypadTap(string $buttonId): void
     {
         $this->postJson('/api/webhook/rubika/test-secret', [
             'update' => [
@@ -56,6 +54,22 @@ class RubikaWebhookTest extends TestCase
                     'sender_id' => 'u222',
                     'aux_data' => ['button_id' => $buttonId],
                 ],
+            ],
+        ])->assertOk();
+    }
+
+    /**
+     * An inline_keypad (per-message button) tap arrives as a separate,
+     * top-level "inline_message" shape — see RubikaAdapter's docblock.
+     */
+    private function sendInlineTap(string $buttonId): void
+    {
+        $this->postJson('/api/webhook/rubika/test-secret', [
+            'inline_message' => [
+                'message_id' => 'm3',
+                'chat_id' => 'c111',
+                'sender_id' => 'u222',
+                'aux_data' => ['button_id' => $buttonId],
             ],
         ])->assertOk();
     }
@@ -79,12 +93,12 @@ class RubikaWebhookTest extends TestCase
     public function test_chat_keypad_main_menu_button_tap_is_treated_as_its_label_text(): void
     {
         // A chat_keypad (persistent reply keyboard) tap arrives as
-        // aux_data.button_id, whose value is the button's own label — the
-        // main menu's buttons are the only chat_keypad buttons we ever send.
-        // We tell it apart from an inline_keypad action id by the space in it.
+        // update.new_message.aux_data.button_id, whose value is the
+        // button's own label — the main menu's buttons are the only
+        // chat_keypad buttons we ever send.
         Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
 
-        $this->sendButtonTap('📋 مشاهده همه رویدادهای فعال');
+        $this->sendChatKeypadTap('📋 مشاهده همه رویدادهای فعال');
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', 'این لیست برنامه‌های قابل ثبت‌نام است'));
@@ -94,7 +108,7 @@ class RubikaWebhookTest extends TestCase
     {
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
 
-        $this->sendButtonTap("program-{$program->id}");
+        $this->sendInlineTap("program-{$program->id}");
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', $program->title));
@@ -108,7 +122,7 @@ class RubikaWebhookTest extends TestCase
             'type' => 'file', 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendButtonTap("register-{$program->id}");
+        $this->sendInlineTap("register-{$program->id}");
 
         $this->postJson('/api/webhook/rubika/test-secret', [
             'update' => [
@@ -122,7 +136,7 @@ class RubikaWebhookTest extends TestCase
             ],
         ])->assertOk();
 
-        $this->sendButtonTap('confirm_registration');
+        $this->sendInlineTap('confirm_registration');
 
         $registration = Registration::first();
         $this->assertNotNull($registration);
@@ -138,9 +152,9 @@ class RubikaWebhookTest extends TestCase
             'type' => 'text', 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendButtonTap("register-{$program->id}");
+        $this->sendInlineTap("register-{$program->id}");
         $this->sendMessage('Ali');
-        $this->sendButtonTap('confirm_registration');
+        $this->sendInlineTap('confirm_registration');
 
         $this->assertDatabaseHas('registrations', [
             'program_id' => $program->id,

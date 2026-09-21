@@ -12,23 +12,19 @@ use Illuminate\Support\Facades\Log;
 /**
  * Rubika's Bot API (https://botapi.rubika.ir/v3) has its own JSON shape,
  * unrelated to Telegram's. Key differences handled here:
- *  - BOTH chat_keypad (persistent reply keyboard) taps and inline_keypad
- *    (per-message button) taps arrive via the same `type: "NewMessage"`
- *    update, with `new_message.aux_data.button_id` set to the button's id.
- *    (The separate `inline_message` shape is for Rubika's unrelated
- *    "ReceiveQuery" inline-query feature — not button taps — which is why
- *    registering a "ReceiveInlineMessage" endpoint always returned
- *    "InvalidUrl": there was never anything for it to deliver here.)
- *  - Since both button kinds share one field, we tell them apart the only
- *    way we reliably can: our own inline button ids (built in
- *    buildInlineKeypad()/BotConversationService) are always space-free
- *    identifiers like "program-5" or "back_to_programs", while our only
- *    chat_keypad buttons are the main-menu labels, which always contain a
- *    space. A button id with a space is therefore treated as if the user
- *    had typed that label as plain text; anything else is callback data.
- *  - inline_keypad and chat_keypad are NOT the same shape: chat_keypad
- *    takes {rows, resize_keyboard, on_time_keyboard}, but inline_keypad
- *    takes only {rows} — adding the extra two fields there is invalid.
+ *  - chat_keypad (persistent reply keyboard) taps arrive as an ordinary
+ *    `type: "NewMessage"` update, with `new_message.aux_data.button_id` set
+ *    to the button's own label text.
+ *  - inline_keypad (per-message button) taps arrive as a SEPARATE top-level
+ *    shape, `{"inline_message": {...}}` (not nested under "update"), with
+ *    `inline_message.aux_data.button_id` set to our action id. This needs a
+ *    dedicated "ReceiveInlineMessage" endpoint registered via
+ *    updateBotEndpoints (confirmed against two independent community
+ *    libraries — Daniyel-Vanguard/Rubika-Bot (PHP) and Mahdy-Ahmadi/Rubka
+ *    (Python) — after an earlier, wrong assumption here that both button
+ *    kinds shared the `update.new_message` shape). That registration has so
+ *    far always returned {"status":"OK","data":{"status":"InvalidUrl"}} in
+ *    our testing, which is why inline_keypad taps don't reach us yet.
  *  - No callback-acknowledgement concept like Telegram's answerCallbackQuery,
  *    so answerCallback() is a no-op.
  *  - Sending a photo is a three-step dance: request an upload URL, upload
@@ -49,25 +45,27 @@ class RubikaAdapter implements MessengerAdapter
     {
         $data = $request->all();
 
+        if (isset($data['inline_message'])) {
+            $inline = $data['inline_message'];
+
+            return new IncomingUpdate(
+                platform: $this->platform(),
+                chatId: (string) ($inline['chat_id'] ?? ''),
+                externalUserId: (string) ($inline['sender_id'] ?? ''),
+                callbackData: $inline['aux_data']['button_id'] ?? null,
+                callbackQueryId: (string) ($inline['message_id'] ?? uniqid('rubika_', true)),
+            );
+        }
+
         $update = $data['update'] ?? [];
         $message = $update['new_message'] ?? [];
         $buttonId = $message['aux_data']['button_id'] ?? null;
-
-        // See the class docblock: a button id containing a space is one of
-        // our chat_keypad main-menu labels (treat as typed text); anything
-        // else is one of our own inline_keypad action ids (treat as a
-        // callback, same as Telegram's callback_data).
-        $isChatKeypadLabel = $buttonId !== null && str_contains($buttonId, ' ');
 
         return new IncomingUpdate(
             platform: $this->platform(),
             chatId: (string) ($update['chat_id'] ?? ''),
             externalUserId: (string) ($message['sender_id'] ?? ''),
-            text: $isChatKeypadLabel ? $buttonId : ($buttonId ? null : ($message['text'] ?? null)),
-            callbackData: $isChatKeypadLabel ? null : $buttonId,
-            callbackQueryId: (! $isChatKeypadLabel && $buttonId)
-                ? (string) ($message['message_id'] ?? uniqid('rubika_', true))
-                : null,
+            text: $buttonId ?? ($message['text'] ?? null),
             fileId: $message['file']['file_id'] ?? null,
             fileType: isset($message['file']) ? 'file' : null,
         );
