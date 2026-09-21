@@ -167,8 +167,17 @@ class RubikaAdapter implements MessengerAdapter
         try {
             $response = Http::timeout(5)->post($this->apiUrl($method), $payload);
 
-            if ($response->failed()) {
-                Log::warning("Rubika {$method} failed", ['response' => $response->json()]);
+            // Temporary: Rubika returns HTTP 200 even when it rejects the
+            // request (the real outcome is nested in the JSON body, e.g.
+            // {"status":"OK","data":{"status":"InvalidInput", ...}}), so
+            // $response->failed() alone can't catch a rejected sendMessage.
+            // Logging the full body until we've confirmed what a rejection
+            // actually looks like for inline_keypad payloads.
+            $body = $response->json();
+            $innerStatus = $body['data']['status'] ?? $body['status'] ?? null;
+
+            if ($response->failed() || ($innerStatus !== null && $innerStatus !== 'OK')) {
+                Log::warning("Rubika {$method} rejected", ['payload' => $payload, 'response' => $body]);
             }
         } catch (ConnectionException $exception) {
             Log::error("Rubika {$method} connection failed", ['message' => $exception->getMessage()]);
