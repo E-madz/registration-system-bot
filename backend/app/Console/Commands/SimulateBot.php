@@ -113,10 +113,10 @@ class SimulateBot extends Command
         $send(['text' => '📋 مشاهده همه رویدادهای فعال']);
 
         $this->info("\n=== انتخاب Program (callback) ===");
-        $send(['callbackData' => "program:{$program->id}", 'callbackQueryId' => 'cbq1']);
+        $send(['callbackData' => "program-{$program->id}", 'callbackQueryId' => 'cbq1']);
 
         $this->info("\n=== شروع ثبت‌نام ===");
-        $send(['callbackData' => "register:{$program->id}", 'callbackQueryId' => 'cbq2']);
+        $send(['callbackData' => "register-{$program->id}", 'callbackQueryId' => 'cbq2']);
 
         $this->info("\n=== پاسخ نام (معتبر) ===");
         $send(['text' => 'علی محمدی']);
@@ -128,11 +128,11 @@ class SimulateBot extends Command
         $send(['text' => 'ali@example.com']);
 
         $this->info("\n=== انتخاب سطح ===");
-        $send(['callbackData' => 'field_choice:1', 'callbackQueryId' => 'cbq3']);
+        $send(['callbackData' => 'field_choice-1', 'callbackQueryId' => 'cbq3']);
 
         $this->info("\n=== تاگل علایق (دو گزینه) ===");
-        $send(['callbackData' => 'field_toggle:0', 'callbackQueryId' => 'cbq4']);
-        $send(['callbackData' => 'field_toggle:2', 'callbackQueryId' => 'cbq5']);
+        $send(['callbackData' => 'field_toggle-0', 'callbackQueryId' => 'cbq4']);
+        $send(['callbackData' => 'field_toggle-2', 'callbackQueryId' => 'cbq5']);
         $send(['callbackData' => 'field_multi_confirm', 'callbackQueryId' => 'cbq6']);
 
         $this->info("\n=== رد شدن از فیلد اختیاری (توضیحات) ===");
@@ -148,20 +148,20 @@ class SimulateBot extends Command
         $send(['callbackData' => 'confirm_registration', 'callbackQueryId' => 'cbq10']);
 
         $this->info("\n=== باز کردن دوباره Program (باید بگه قبلا ثبت‌نام کرده) ===");
-        $send(['callbackData' => "program:{$program->id}", 'callbackQueryId' => 'cbq11']);
+        $send(['callbackData' => "program-{$program->id}", 'callbackQueryId' => 'cbq11']);
 
         $this->info("\n=== تلاش برای ثبت‌نام دوباره ===");
-        $send(['callbackData' => "register:{$program->id}", 'callbackQueryId' => 'cbq12']);
+        $send(['callbackData' => "register-{$program->id}", 'callbackQueryId' => 'cbq12']);
 
         $this->info("\n=== برنامه‌های من ===");
         $send(['text' => '🎫 برنامه‌های من']);
 
         $registration = Registration::first();
         $this->info("\n=== انصراف از ثبت‌نام ===");
-        $send(['callbackData' => "cancel_registration:{$registration->id}", 'callbackQueryId' => 'cbq13']);
+        $send(['callbackData' => "cancel_registration-{$registration->id}", 'callbackQueryId' => 'cbq13']);
 
         $this->info("\n=== باز کردن دوباره بعد از انصراف ===");
-        $send(['callbackData' => "program:{$program->id}", 'callbackQueryId' => 'cbq14']);
+        $send(['callbackData' => "program-{$program->id}", 'callbackQueryId' => 'cbq14']);
 
         $this->info("\n=== جستجو با متن نامرتبط ===");
         $send(['text' => 'چیزی که وجود نداره']);
@@ -171,21 +171,21 @@ class SimulateBot extends Command
 
         $this->info("\n=== Program با وضعیت closed ===");
         $closed = Program::create(['title' => 'دوره بسته‌شده', 'slug' => 'closed-course', 'status' => Program::STATUS_CLOSED]);
-        $send(['callbackData' => "program:{$closed->id}", 'callbackQueryId' => 'cbq15']);
+        $send(['callbackData' => "program-{$closed->id}", 'callbackQueryId' => 'cbq15']);
 
         $this->info("\n=== Program با وضعیت canceled ===");
         $canceled = Program::create(['title' => 'دوره لغوشده', 'slug' => 'canceled-course', 'status' => Program::STATUS_CANCELED]);
-        $send(['callbackData' => "program:{$canceled->id}", 'callbackQueryId' => 'cbq16']);
+        $send(['callbackData' => "program-{$canceled->id}", 'callbackQueryId' => 'cbq16']);
 
         $this->info("\n=== Program با ظرفیت تکمیل‌شده ===");
         $full = Program::create(['title' => 'دوره پرشده', 'slug' => 'full-course', 'status' => Program::STATUS_PUBLISHED, 'capacity' => 1]);
         $otherUser = BotUser::create(['platform' => 'telegram', 'external_id' => '999']);
         Registration::create(['program_id' => $full->id, 'bot_user_id' => $otherUser->id, 'status' => Registration::STATUS_CONFIRMED, 'tracking_code' => Registration::generateUniqueTrackingCode()]);
-        $send(['callbackData' => "program:{$full->id}", 'callbackQueryId' => 'cbq17']);
+        $send(['callbackData' => "program-{$full->id}", 'callbackQueryId' => 'cbq17']);
 
         $this->info("\n=== Program با ثبت‌نام هنوز شروع‌نشده ===");
         $future = Program::create(['title' => 'دوره آینده', 'slug' => 'future-course', 'status' => Program::STATUS_PUBLISHED, 'registration_starts_at' => now()->addDays(2)]);
-        $send(['callbackData' => "program:{$future->id}", 'callbackQueryId' => 'cbq18']);
+        $send(['callbackData' => "program-{$future->id}", 'callbackQueryId' => 'cbq18']);
 
         $this->info("\n=== لیست خالی از برنامه‌ها ===");
         Program::query()->delete();

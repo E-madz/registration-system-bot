@@ -79,7 +79,10 @@ class BotConversationService
     {
         $adapter->answerCallback($update->callbackQueryId);
 
-        [$action, $argument] = array_pad(explode(':', $update->callbackData ?? '', 2), 2, null);
+        // '-' (not ':') is used as the action/argument delimiter — Rubika
+        // silently refuses to deliver taps on inline buttons whose id
+        // contains a colon, discovered via manual testing.
+        [$action, $argument] = array_pad(explode('-', $update->callbackData ?? '', 2), 2, null);
 
         if (in_array($action, self::FLOW_ACTIONS, true)) {
             $state = $botUser->conversationState;
@@ -140,7 +143,7 @@ class BotConversationService
         }
 
         $keyboard = $programs
-            ->map(fn (Program $program) => [new KeyboardButton($program->title, "program:{$program->id}")])
+            ->map(fn (Program $program) => [new KeyboardButton($program->title, "program-{$program->id}")])
             ->all();
 
         $adapter->sendMessage($chatId, 'این لیست برنامه‌های قابل ثبت‌نام است، برای مشاهده اطلاعات بیشتر، برنامه مورد نظر را انتخاب کنید.', $keyboard);
@@ -172,7 +175,7 @@ class BotConversationService
         }
 
         $keyboard = $matches
-            ->map(fn (Program $program) => [new KeyboardButton($program->title, "program:{$program->id}")])
+            ->map(fn (Program $program) => [new KeyboardButton($program->title, "program-{$program->id}")])
             ->all();
 
         $adapter->sendMessage($chatId, 'نتایج جستجو:', $keyboard);
@@ -202,7 +205,7 @@ class BotConversationService
         }
 
         $keyboard = $registrations
-            ->map(fn (Registration $registration) => [new KeyboardButton('🎟 '.$registration->program->title, "program:{$registration->program_id}")])
+            ->map(fn (Registration $registration) => [new KeyboardButton('🎟 '.$registration->program->title, "program-{$registration->program_id}")])
             ->all();
 
         $adapter->sendMessage(
@@ -277,7 +280,7 @@ class BotConversationService
             return [
                 "✅ وضعیت شما: ثبت‌نام قطعی شده است.\n🎫 کد پیگیری: {$registration->tracking_code}",
                 [[
-                    new KeyboardButton('❌ انصراف از برنامه', "cancel_registration:{$registration->id}"),
+                    new KeyboardButton('❌ انصراف از برنامه', "cancel_registration-{$registration->id}"),
                     $backButton,
                 ]],
             ];
@@ -310,7 +313,7 @@ class BotConversationService
         }
 
         return [$capacityLine, [
-            [new KeyboardButton('ثبت‌نام در این برنامه', "register:{$program->id}")],
+            [new KeyboardButton('ثبت‌نام در این برنامه', "register-{$program->id}")],
             [$backButton],
         ]];
     }

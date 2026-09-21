@@ -53,7 +53,7 @@ class BaleWebhookTest extends TestCase
                 'id' => 'cbq1',
                 'from' => ['id' => 222, 'first_name' => 'Emad'],
                 'message' => ['chat' => ['id' => 111]],
-                'data' => "program:{$program->id}",
+                'data' => "program-{$program->id}",
             ],
         ])->assertOk();
 

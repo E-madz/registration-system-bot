@@ -76,7 +76,7 @@ class TelegramWebhookTest extends TestCase
         Http::assertSent(function ($request) use ($program) {
             return str_contains($request->url(), 'sendMessage')
                 && $request['chat_id'] === '111'
-                && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === "program:{$program->id}";
+                && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === "program-{$program->id}";
         });
     }
 
@@ -90,7 +90,7 @@ class TelegramWebhookTest extends TestCase
                 'id' => 'cbq1',
                 'from' => ['id' => 222, 'first_name' => 'Emad'],
                 'message' => ['chat' => ['id' => 111]],
-                'data' => "program:{$program->id}",
+                'data' => "program-{$program->id}",
             ],
         ])->assertOk();
 
@@ -98,7 +98,7 @@ class TelegramWebhookTest extends TestCase
         Http::assertSent(function ($request) use ($program) {
             return str_contains($request->url(), 'sendMessage')
                 && str_contains($request['text'], $program->title)
-                && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === "register:{$program->id}";
+                && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === "register-{$program->id}";
         });
     }
 

@@ -80,7 +80,7 @@ class RegistrationFlowTest extends TestCase
             'type' => 'textarea', 'is_required' => false, 'order' => 1,
         ]);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
         $this->sendMessage('Ali Mohammadi');
         $this->sendCallback('field_skip');
         $this->sendCallback('confirm_registration');
@@ -110,7 +110,7 @@ class RegistrationFlowTest extends TestCase
             'type' => 'text', 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
         $this->sendMessage('Ali Mohammadi');
         $this->sendMessage('این یه متن تصادفیه، نه دکمه');
 
@@ -131,7 +131,7 @@ class RegistrationFlowTest extends TestCase
             'type' => 'email', 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
         $this->sendMessage('not-an-email');
 
         $state = \App\Models\ConversationState::first();
@@ -150,7 +150,7 @@ class RegistrationFlowTest extends TestCase
             'type' => 'date', 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', '1404/05/12'));
@@ -179,7 +179,7 @@ class RegistrationFlowTest extends TestCase
             'type' => 'file', 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', 'عکس یا فایل ارسال کنید'));
@@ -211,7 +211,7 @@ class RegistrationFlowTest extends TestCase
             'type' => 'number', 'is_required' => true, 'order' => 1,
         ]);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
         $this->sendMessage('Ali');
         $this->sendCallback('field_back');
 
@@ -228,8 +228,8 @@ class RegistrationFlowTest extends TestCase
             'type' => 'select', 'options' => ['Beginner', 'Advanced'], 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendCallback("register:{$program->id}");
-        $this->sendCallback('field_choice:1');
+        $this->sendCallback("register-{$program->id}");
+        $this->sendCallback('field_choice-1');
         $this->sendCallback('confirm_registration');
 
         $registration = Registration::first();
@@ -249,9 +249,9 @@ class RegistrationFlowTest extends TestCase
             'type' => 'multiselect', 'options' => ['Music', 'Sport', 'Art'], 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendCallback("register:{$program->id}");
-        $this->sendCallback('field_toggle:0');
-        $this->sendCallback('field_toggle:2');
+        $this->sendCallback("register-{$program->id}");
+        $this->sendCallback('field_toggle-0');
+        $this->sendCallback('field_toggle-2');
         $this->sendCallback('field_multi_confirm');
         $this->sendCallback('confirm_registration');
 
@@ -265,7 +265,7 @@ class RegistrationFlowTest extends TestCase
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
         ProgramField::factory()->create(['program_id' => $program->id, 'order' => 0]);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
         $this->sendCallback('cancel_registration_flow');
 
         $this->assertDatabaseCount('conversation_states', 0);
@@ -277,12 +277,12 @@ class RegistrationFlowTest extends TestCase
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
         ProgramField::factory()->create(['program_id' => $program->id, 'order' => 0, 'is_required' => false]);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
         $this->sendCallback('field_skip');
         $this->sendCallback('confirm_registration');
         $this->assertDatabaseCount('registrations', 1);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
         $this->assertDatabaseCount('conversation_states', 0);
     }
 
@@ -297,7 +297,7 @@ class RegistrationFlowTest extends TestCase
             'tracking_code' => Registration::generateUniqueTrackingCode(),
         ]);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
 
         $this->assertDatabaseCount('conversation_states', 0);
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
@@ -315,7 +315,7 @@ class RegistrationFlowTest extends TestCase
             'tracking_code' => Registration::generateUniqueTrackingCode(),
         ]);
 
-        $this->sendCallback("cancel_registration:{$registration->id}");
+        $this->sendCallback("cancel_registration-{$registration->id}");
 
         $this->assertDatabaseHas('registrations', [
             'id' => $registration->id,
@@ -328,7 +328,7 @@ class RegistrationFlowTest extends TestCase
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
         ProgramField::factory()->create(['program_id' => $program->id, 'order' => 0]);
 
-        $this->sendCallback("register:{$program->id}");
+        $this->sendCallback("register-{$program->id}");
         $this->assertDatabaseCount('conversation_states', 1);
 
         $this->sendMessage('/start');

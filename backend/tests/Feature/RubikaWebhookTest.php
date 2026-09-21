@@ -100,7 +100,7 @@ class RubikaWebhookTest extends TestCase
     {
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
 
-        $this->sendInlineTap("program:{$program->id}");
+        $this->sendInlineTap("program-{$program->id}");
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', $program->title));
@@ -114,7 +114,7 @@ class RubikaWebhookTest extends TestCase
             'type' => 'file', 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendInlineTap("register:{$program->id}");
+        $this->sendInlineTap("register-{$program->id}");
 
         $this->postJson('/api/webhook/rubika/test-secret', [
             'update' => [
@@ -144,7 +144,7 @@ class RubikaWebhookTest extends TestCase
             'type' => 'text', 'is_required' => true, 'order' => 0,
         ]);
 
-        $this->sendInlineTap("register:{$program->id}");
+        $this->sendInlineTap("register-{$program->id}");
         $this->sendMessage('Ali');
         $this->sendInlineTap('confirm_registration');
 

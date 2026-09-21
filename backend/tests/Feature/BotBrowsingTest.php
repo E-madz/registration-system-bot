@@ -83,7 +83,7 @@ class BotBrowsingTest extends TestCase
         $this->sendMessage('🎫 برنامه‌های من');
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
-            && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === "program:{$program->id}");
+            && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === "program-{$program->id}");
     }
 
     public function test_search_with_single_match_shows_detail_directly(): void
@@ -94,7 +94,7 @@ class BotBrowsingTest extends TestCase
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', $program->title)
-            && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === "register:{$program->id}");
+            && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === "register-{$program->id}");
     }
 
     public function test_search_with_multiple_matches_shows_a_list(): void
@@ -113,7 +113,7 @@ class BotBrowsingTest extends TestCase
     {
         $program = Program::factory()->create(['status' => Program::STATUS_CLOSED]);
 
-        $this->sendCallback("program:{$program->id}");
+        $this->sendCallback("program-{$program->id}");
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', 'مهلت ثبت‌نام این برنامه پایان یافته'));
@@ -123,7 +123,7 @@ class BotBrowsingTest extends TestCase
     {
         $program = Program::factory()->create(['status' => Program::STATUS_CANCELED]);
 
-        $this->sendCallback("program:{$program->id}");
+        $this->sendCallback("program-{$program->id}");
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', 'لغو شده است'));
@@ -136,7 +136,7 @@ class BotBrowsingTest extends TestCase
             'registration_starts_at' => now()->addDays(3),
         ]);
 
-        $this->sendCallback("program:{$program->id}");
+        $this->sendCallback("program-{$program->id}");
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
             && str_contains($request['text'] ?? '', 'هنوز آغاز نشده'));

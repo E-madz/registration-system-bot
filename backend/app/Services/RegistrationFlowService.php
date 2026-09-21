@@ -180,13 +180,13 @@ class RegistrationFlowService
 
         if ($field->type === 'select') {
             foreach ($field->options ?? [] as $i => $option) {
-                $keyboard[] = [new KeyboardButton($option, "field_choice:{$i}")];
+                $keyboard[] = [new KeyboardButton($option, "field_choice-{$i}")];
             }
         } elseif ($field->type === 'multiselect') {
             $selected = $state->answers[self::MULTISELECT_TMP_KEY] ?? [];
             foreach ($field->options ?? [] as $i => $option) {
                 $prefix = in_array($i, $selected, true) ? '✅ ' : '⬜ ';
-                $keyboard[] = [new KeyboardButton($prefix.$option, "field_toggle:{$i}")];
+                $keyboard[] = [new KeyboardButton($prefix.$option, "field_toggle-{$i}")];
             }
             $keyboard[] = [new KeyboardButton('تایید انتخاب‌ها', 'field_multi_confirm')];
         }
