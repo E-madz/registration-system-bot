@@ -171,6 +171,10 @@ class RegistrationFlowService
             $text .= "\n{$hint}";
         }
 
+        if ($rangeHint = $this->rangeHint($field->type, $field->validation_rules ?? [])) {
+            $text .= "\n{$rangeHint}";
+        }
+
         $previousAnswer = $state->answers[$field->key] ?? null;
         if ($previousAnswer !== null && ! is_array($previousAnswer)) {
             $text .= "\n\nپاسخ فعلی شما: {$previousAnswer}\nبرای تغییر، پاسخ جدید ارسال کنید.";
@@ -217,7 +221,7 @@ class RegistrationFlowService
 
         return match ($field->type) {
             'email' => filter_var($value, FILTER_VALIDATE_EMAIL) ? null : 'فرمت ایمیل صحیح نیست. مثال: name@example.com',
-            'number' => is_numeric($value) ? null : 'لطفاً فقط عدد وارد کنید.',
+            'number' => $this->validateNumber($value, $rules),
             'phone' => preg_match('/^[0-9+\-() ]{7,15}$/', $value) ? null : 'فرمت شماره تماس صحیح نیست. مثال: 09123456789',
             'date' => $this->isValidDateShape($value) ? null : 'فرمت تاریخ صحیح نیست. مثال: 1404/05/12',
             'text', 'textarea' => $this->validateLength($value, $rules),
@@ -245,6 +249,46 @@ class RegistrationFlowService
             'file' => 'لطفاً یک عکس یا فایل ارسال کنید.',
             default => null,
         };
+    }
+
+    private function rangeHint(string $type, array $rules): ?string
+    {
+        if (! in_array($type, ['text', 'textarea', 'number'], true)) {
+            return null;
+        }
+
+        $min = $rules['min'] ?? null;
+        $max = $rules['max'] ?? null;
+
+        if ($min === null && $max === null) {
+            return null;
+        }
+
+        $unit = in_array($type, ['text', 'textarea'], true) ? ' کاراکتر' : '';
+
+        if ($min !== null && $max !== null) {
+            return "(بین {$min} تا {$max}{$unit})";
+        }
+
+        return $min !== null ? "(حداقل {$min}{$unit})" : "(حداکثر {$max}{$unit})";
+    }
+
+    private function validateNumber(string $value, array $rules): ?string
+    {
+        if (! is_numeric($value)) {
+            return 'لطفاً فقط عدد وارد کنید.';
+        }
+
+        $number = (float) $value;
+
+        if (isset($rules['min']) && $number < $rules['min']) {
+            return "حداقل مقدار مجاز {$rules['min']} است.";
+        }
+        if (isset($rules['max']) && $number > $rules['max']) {
+            return "حداکثر مقدار مجاز {$rules['max']} است.";
+        }
+
+        return null;
     }
 
     private function validateLength(string $value, array $rules): ?string

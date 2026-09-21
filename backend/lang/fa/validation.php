@@ -25,6 +25,9 @@ return [
     'email' => 'فرمت :attribute صحیح نیست.',
     'regex' => 'فرمت :attribute صحیح نیست.',
     'unique' => 'این مقدار برای :attribute قبلاً استفاده شده است.',
+    'gte' => [
+        'numeric' => ':attribute باید بزرگتر یا مساوی :value باشد.',
+    ],
     'exists' => ':attribute انتخاب‌شده معتبر نیست.',
     'in' => ':attribute انتخاب‌شده معتبر نیست.',
     'image' => ':attribute باید یک تصویر باشد.',
@@ -50,5 +53,7 @@ return [
         'is_required' => 'اجباری بودن',
         'order' => 'ترتیب',
         'validation_rules' => 'قوانین اعتبارسنجی',
+        'validation_rules.min' => 'حداقل مجاز',
+        'validation_rules.max' => 'حداکثر مجاز',
     ],
 ];

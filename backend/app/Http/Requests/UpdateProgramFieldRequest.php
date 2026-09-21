@@ -42,6 +42,8 @@ class UpdateProgramFieldRequest extends FormRequest
             'is_required' => ['sometimes', 'boolean'],
             'order' => ['nullable', 'integer', 'min:0'],
             'validation_rules' => ['nullable', 'array'],
+            'validation_rules.min' => ['nullable', 'integer', 'min:0'],
+            'validation_rules.max' => ['nullable', 'integer', 'min:0', 'gte:validation_rules.min'],
         ];
     }
 }

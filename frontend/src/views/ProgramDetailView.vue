@@ -32,6 +32,7 @@ const FIELD_TYPE_LABELS = {
   file: 'فایل/عکس',
 }
 const CHOICE_TYPES = ['select', 'multiselect']
+const RANGE_TYPES = ['text', 'textarea', 'number']
 
 const route = useRoute()
 const router = useRouter()
@@ -62,8 +63,10 @@ const newField = reactive({
   key: '',
   type: 'text',
   help_text: '',
-  options: '',
+  options: [],
   is_required: false,
+  min: '',
+  max: '',
 })
 const fieldError = ref('')
 const addingField = ref(false)
@@ -74,8 +77,10 @@ const editField = reactive({
   key: '',
   type: 'text',
   help_text: '',
-  options: '',
+  options: [],
   is_required: false,
+  min: '',
+  max: '',
 })
 const editFieldError = ref('')
 const savingField = ref(false)
@@ -186,22 +191,36 @@ async function changeStatus() {
   }
 }
 
+function buildFieldPayload(source) {
+  const payload = {
+    label: source.label,
+    key: source.key,
+    type: source.type,
+    help_text: source.help_text || null,
+    is_required: source.is_required,
+  }
+  if (CHOICE_TYPES.includes(source.type)) {
+    payload.options = source.options.map((o) => o.trim()).filter(Boolean)
+  }
+  if (RANGE_TYPES.includes(source.type)) {
+    const rules = {}
+    if (source.min !== '' && source.min !== null) rules.min = Number(source.min)
+    if (source.max !== '' && source.max !== null) rules.max = Number(source.max)
+    payload.validation_rules = rules
+  }
+  return payload
+}
+
+function resetNewField() {
+  Object.assign(newField, { label: '', key: '', type: 'text', help_text: '', options: [], is_required: false, min: '', max: '' })
+}
+
 async function addField() {
   fieldError.value = ''
   addingField.value = true
   try {
-    const payload = {
-      label: newField.label,
-      key: newField.key,
-      type: newField.type,
-      help_text: newField.help_text || null,
-      is_required: newField.is_required,
-    }
-    if (CHOICE_TYPES.includes(newField.type)) {
-      payload.options = newField.options.split(',').map((o) => o.trim()).filter(Boolean)
-    }
-    await apiClient.post(`/programs/${programId}/fields`, payload)
-    Object.assign(newField, { label: '', key: '', type: 'text', help_text: '', options: '', is_required: false })
+    await apiClient.post(`/programs/${programId}/fields`, buildFieldPayload(newField))
+    resetNewField()
     await loadProgram()
   } catch (e) {
     const errors = e.response?.data?.errors
@@ -225,8 +244,10 @@ function startEditField(field) {
     key: field.key,
     type: field.type,
     help_text: field.help_text || '',
-    options: (field.options || []).join(', '),
+    options: [...(field.options || [])],
     is_required: field.is_required,
+    min: field.validation_rules?.min ?? '',
+    max: field.validation_rules?.max ?? '',
   })
 }
 
@@ -239,17 +260,7 @@ async function saveEditField(field) {
   editFieldError.value = ''
   savingField.value = true
   try {
-    const payload = {
-      label: editField.label,
-      key: editField.key,
-      type: editField.type,
-      help_text: editField.help_text || null,
-      is_required: editField.is_required,
-    }
-    if (CHOICE_TYPES.includes(editField.type)) {
-      payload.options = editField.options.split(',').map((o) => o.trim()).filter(Boolean)
-    }
-    await apiClient.put(`/programs/${programId}/fields/${field.id}`, payload)
+    await apiClient.put(`/programs/${programId}/fields/${field.id}`, buildFieldPayload(editField))
     editingFieldId.value = null
     await loadProgram()
   } catch (e) {
@@ -387,12 +398,18 @@ onMounted(loadProgram)
                     <option v-for="t in FIELD_TYPES" :key="t" :value="t">{{ FIELD_TYPE_LABELS[t] }}</option>
                   </select>
                   <input v-model="editField.help_text" placeholder="متن راهنما" maxlength="50" />
-                  <input
-                    v-if="CHOICE_TYPES.includes(editField.type)"
-                    v-model="editField.options"
-                    placeholder="گزینه‌ها با کاما جدا شوند"
-                  />
+                  <template v-if="RANGE_TYPES.includes(editField.type)">
+                    <input v-model.number="editField.min" type="number" placeholder="حداقل (اختیاری)" />
+                    <input v-model.number="editField.max" type="number" placeholder="حداکثر (اختیاری)" />
+                  </template>
                   <label class="checkbox"><input v-model="editField.is_required" type="checkbox" /> اجباری</label>
+                  <div v-if="CHOICE_TYPES.includes(editField.type)" class="options-editor span-full">
+                    <div v-for="(opt, i) in editField.options" :key="i" class="option-row">
+                      <input v-model="editField.options[i]" placeholder="گزینه" />
+                      <button type="button" class="ghost small" @click="editField.options.splice(i, 1)">✕</button>
+                    </div>
+                    <button type="button" class="small ghost" @click="editField.options.push('')">+ افزودن گزینه</button>
+                  </div>
                   <div class="row">
                     <button class="primary small" @click="saveEditField(field)" :disabled="savingField">ذخیره</button>
                     <button class="ghost small" @click="cancelEditField">انصراف</button>
@@ -417,12 +434,18 @@ onMounted(loadProgram)
           <option v-for="t in FIELD_TYPES" :key="t" :value="t">{{ FIELD_TYPE_LABELS[t] }}</option>
         </select>
         <input v-model="newField.help_text" placeholder="متن راهنما" maxlength="50" />
-        <input
-          v-if="CHOICE_TYPES.includes(newField.type)"
-          v-model="newField.options"
-          placeholder="گزینه‌ها با کاما جدا شوند"
-        />
+        <template v-if="RANGE_TYPES.includes(newField.type)">
+          <input v-model.number="newField.min" type="number" placeholder="حداقل (اختیاری)" />
+          <input v-model.number="newField.max" type="number" placeholder="حداکثر (اختیاری)" />
+        </template>
         <label class="checkbox"><input v-model="newField.is_required" type="checkbox" /> اجباری</label>
+        <div v-if="CHOICE_TYPES.includes(newField.type)" class="options-editor span-full">
+          <div v-for="(opt, i) in newField.options" :key="i" class="option-row">
+            <input v-model="newField.options[i]" placeholder="گزینه" />
+            <button type="button" class="ghost small" @click="newField.options.splice(i, 1)">✕</button>
+          </div>
+          <button type="button" class="small ghost" @click="newField.options.push('')">+ افزودن گزینه</button>
+        </div>
         <button type="submit" class="primary" :disabled="addingField">{{ addingField ? 'در حال افزودن...' : 'افزودن' }}</button>
       </form>
       <p v-if="fieldError" class="alert alert-error">{{ fieldError }}</p>
@@ -464,6 +487,21 @@ onMounted(loadProgram)
 }
 .field-form input, .field-form select {
   flex: 1 1 150px;
+}
+.options-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.options-editor.span-full {
+  flex-basis: 100%;
+}
+.option-row {
+  display: flex;
+  gap: 8px;
+}
+.option-row input {
+  flex: 1;
 }
 .edit-row {
   background: var(--color-primary-light);

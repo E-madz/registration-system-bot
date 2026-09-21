@@ -189,6 +189,41 @@ class RegistrationFlowTest extends TestCase
         ]);
     }
 
+    public function test_number_field_enforces_min_and_max(): void
+    {
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        ProgramField::factory()->create([
+            'program_id' => $program->id, 'key' => 'age', 'label' => 'Age',
+            'type' => 'number', 'is_required' => true, 'order' => 0,
+            'validation_rules' => ['min' => 18, 'max' => 60],
+        ]);
+
+        $this->sendCallback("register-{$program->id}");
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'بین 18 تا 60'));
+
+        $this->sendMessage('10');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'حداقل مقدار مجاز 18 است'));
+
+        $this->sendMessage('99');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'حداکثر مقدار مجاز 60 است'));
+
+        $this->sendMessage('25');
+        $this->sendCallback('confirm_registration');
+
+        $registration = Registration::first();
+        $this->assertDatabaseHas('registration_answers', [
+            'registration_id' => $registration->id,
+            'field_key' => 'age',
+            'value' => json_encode('25'),
+        ]);
+    }
+
     public function test_file_field_shows_hint_and_accepts_a_photo_upload(): void
     {
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
