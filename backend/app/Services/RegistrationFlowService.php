@@ -393,7 +393,10 @@ class RegistrationFlowService
     private function sendSummary(ConversationState $state, MessengerAdapter $adapter): void
     {
         $fields = $this->orderedFields($state->program);
-        $lines = ['لطفاً اطلاعات زیر را بررسی کنید:'];
+
+        $lines = $fields->isEmpty()
+            ? ['آیا ثبت‌نام خود را در این برنامه تایید می‌کنید؟']
+            : ['لطفاً اطلاعات زیر را بررسی کنید:'];
 
         foreach ($fields as $field) {
             $answer = $state->answers[$field->key] ?? null;

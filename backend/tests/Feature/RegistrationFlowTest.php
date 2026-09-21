@@ -102,6 +102,24 @@ class RegistrationFlowTest extends TestCase
             && str_contains($request['text'] ?? '', $registration->tracking_code));
     }
 
+    public function test_registering_for_a_program_with_no_fields_skips_straight_to_a_plain_confirmation(): void
+    {
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+
+        $this->sendCallback("register-{$program->id}");
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'آیا ثبت‌نام خود را در این برنامه تایید می‌کنید؟')
+            && ! str_contains($request['text'] ?? '', 'لطفاً اطلاعات زیر را بررسی کنید'));
+
+        $this->sendCallback('confirm_registration');
+
+        $this->assertDatabaseHas('registrations', [
+            'program_id' => $program->id,
+            'status' => Registration::STATUS_CONFIRMED,
+        ]);
+    }
+
     public function test_typing_text_during_confirmation_resends_summary_with_buttons(): void
     {
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
