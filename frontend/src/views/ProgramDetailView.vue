@@ -73,7 +73,8 @@ async function saveProgram() {
     Object.assign(program, data.data)
     saveMessage.value = 'ذخیره شد.'
   } catch (e) {
-    saveError.value = e.response?.data?.message || 'خطا در ذخیره‌سازی.'
+    const errors = e.response?.data?.errors
+    saveError.value = errors ? Object.values(errors).flat().join(' ') : (e.response?.data?.message || 'خطا در ذخیره‌سازی.')
   }
 }
 
