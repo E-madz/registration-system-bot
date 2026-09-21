@@ -58,7 +58,8 @@ class RegistrationFlowService
         $chatId = $state->botUser->external_id;
 
         if ($state->stage === ConversationState::STAGE_CONFIRMING) {
-            $adapter->sendMessage($chatId, 'لطفاً یکی از دکمه‌های «تایید» یا «انصراف» را انتخاب کنید.');
+            $adapter->sendMessage($chatId, 'لطفاً یکی از دکمه‌های زیر را انتخاب کنید:');
+            $this->sendSummary($state, $adapter);
 
             return;
         }

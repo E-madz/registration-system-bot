@@ -88,6 +88,27 @@ class RegistrationFlowTest extends TestCase
             && str_contains($request['text'] ?? '', $registration->tracking_code));
     }
 
+    public function test_typing_text_during_confirmation_resends_summary_with_buttons(): void
+    {
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        ProgramField::factory()->create([
+            'program_id' => $program->id, 'key' => 'full_name', 'label' => 'Full name',
+            'type' => 'text', 'is_required' => true, 'order' => 0,
+        ]);
+
+        $this->sendCallback("register:{$program->id}");
+        $this->sendMessage('Ali Mohammadi');
+        $this->sendMessage('این یه متن تصادفیه، نه دکمه');
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), 'sendMessage')
+                && str_contains($request['text'] ?? '', 'Full name: Ali Mohammadi')
+                && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === 'confirm_registration';
+        });
+
+        $this->assertDatabaseCount('registrations', 0);
+    }
+
     public function test_invalid_answer_is_rejected_and_field_is_asked_again(): void
     {
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
