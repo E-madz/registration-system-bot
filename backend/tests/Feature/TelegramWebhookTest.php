@@ -52,6 +52,8 @@ class TelegramWebhookTest extends TestCase
             'last_name' => 'Nazari',
         ]);
 
+        $this->assertNotNull(BotUser::first()->last_interaction_at);
+
         Http::assertSent(function ($request) use ($program) {
             return str_contains($request->url(), 'sendMessage')
                 && $request['chat_id'] === '111'

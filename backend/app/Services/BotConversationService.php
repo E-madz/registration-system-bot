@@ -14,7 +14,12 @@ class BotConversationService
     {
         BotUser::updateOrCreate(
             ['platform' => $update->platform, 'external_id' => $update->externalUserId],
-            ['first_name' => $update->firstName, 'last_name' => $update->lastName, 'username' => $update->username],
+            [
+                'first_name' => $update->firstName,
+                'last_name' => $update->lastName,
+                'username' => $update->username,
+                'last_interaction_at' => now(),
+            ],
         );
 
         if ($update->isCallback()) {
