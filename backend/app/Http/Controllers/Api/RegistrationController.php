@@ -8,6 +8,7 @@ use App\Models\Program;
 use App\Models\Registration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Storage;
 
 class RegistrationController extends Controller
 {
@@ -127,8 +128,11 @@ class RegistrationController extends Controller
             return '';
         }
         if (is_array($value)) {
+            if (isset($value['stored_path'])) {
+                return Storage::disk('public')->url($value['stored_path']);
+            }
             if (isset($value['file_id'])) {
-                return 'فایل ارسال شد';
+                return 'فایل ارسال شد (دانلود در دسترس نیست)';
             }
 
             return implode('، ', $value);

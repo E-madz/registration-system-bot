@@ -56,5 +56,6 @@ return [
         'validation_rules' => 'قوانین اعتبارسنجی',
         'validation_rules.min' => 'حداقل مجاز',
         'validation_rules.max' => 'حداکثر مجاز',
+        'validation_rules.max_size_kb' => 'حداکثر حجم فایل',
     ],
 ];

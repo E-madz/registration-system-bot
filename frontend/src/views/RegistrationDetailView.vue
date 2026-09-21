@@ -30,9 +30,13 @@ async function load() {
 function formatAnswer(answer) {
   const value = answer.value
   if (value === null || value === undefined) return 'رد شد'
-  if (typeof value === 'object' && value.file_id) return '📎 فایل ارسال شد'
+  if (typeof value === 'object' && value.file_id) return '📎 فایل ارسال شد (دانلود در دسترس نیست)'
   if (Array.isArray(value)) return value.join('، ')
   return String(value)
+}
+
+function isImageUrl(url) {
+  return /\.(jpe?g|png|gif|webp)$/i.test(url)
 }
 
 async function cancelRegistration() {
@@ -100,7 +104,11 @@ onMounted(load)
             {{ answer.field_label }}
             <span v-if="!answer.program_field_id" class="muted">(حذف‌شده)</span>
           </span>
-          <span class="answer-value">{{ formatAnswer(answer) }}</span>
+          <span class="answer-value" v-if="answer.file_url">
+            <a :href="answer.file_url" target="_blank" rel="noopener">⬇ دانلود فایل</a>
+            <img v-if="isImageUrl(answer.file_url)" :src="answer.file_url" alt="" class="answer-image" />
+          </span>
+          <span class="answer-value" v-else>{{ formatAnswer(answer) }}</span>
         </div>
       </div>
     </section>
@@ -146,5 +154,15 @@ onMounted(load)
 .answer-value {
   text-align: left;
   font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.answer-image {
+  max-width: 160px;
+  max-height: 160px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
 }
 </style>

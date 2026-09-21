@@ -50,4 +50,13 @@ interface MessengerAdapter
      * reflects only what happened during the current request.
      */
     public function wasBlockedByUser(): bool;
+
+    /**
+     * Downloads a file the user previously sent (identified by fileId/
+     * fileType from an IncomingUpdate) and stores it locally so it stays
+     * accessible from the admin panel. Returns the stored relative path
+     * (on the "public" disk) on success, or null if it couldn't be
+     * downloaded.
+     */
+    public function downloadFile(string $fileId, string $fileType): ?string;
 }

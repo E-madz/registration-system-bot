@@ -72,6 +72,11 @@ class SimulateBot extends Command
                 return false;
             }
 
+            public function downloadFile(string $fileId, string $fileType): ?string
+            {
+                return null;
+            }
+
             private function printKeyboard(?array $keyboard): void
             {
                 if (! $keyboard) {

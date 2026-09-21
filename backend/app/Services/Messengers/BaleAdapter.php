@@ -18,4 +18,14 @@ class BaleAdapter extends AbstractTelegramCompatibleAdapter
     {
         return 'https://tapi.bale.ai/bot';
     }
+
+    /**
+     * Unconfirmed: mirrors Telegram's file-download convention since Bale's
+     * API is documented as an intentional clone, but this specific endpoint
+     * has never actually been exercised against Bale.
+     */
+    protected function fileBaseUrl(): string
+    {
+        return 'https://tapi.bale.ai/file/bot';
+    }
 }

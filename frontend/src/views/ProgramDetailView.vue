@@ -33,6 +33,7 @@ const FIELD_TYPE_LABELS = {
 }
 const CHOICE_TYPES = ['select', 'multiselect']
 const RANGE_TYPES = ['text', 'textarea', 'number']
+const FILE_SIZE_TYPES = ['file']
 
 const route = useRoute()
 const router = useRouter()
@@ -69,6 +70,7 @@ const newField = reactive({
   is_required: false,
   min: '',
   max: '',
+  maxSizeKb: '',
 })
 const fieldError = ref('')
 const addingField = ref(false)
@@ -83,6 +85,7 @@ const editField = reactive({
   is_required: false,
   min: '',
   max: '',
+  maxSizeKb: '',
   lockedOptionsCount: 0,
 })
 const editFieldError = ref('')
@@ -212,11 +215,16 @@ function buildFieldPayload(source) {
     if (source.max !== '' && source.max !== null) rules.max = Number(source.max)
     payload.validation_rules = rules
   }
+  if (FILE_SIZE_TYPES.includes(source.type)) {
+    const rules = {}
+    if (source.maxSizeKb !== '' && source.maxSizeKb !== null) rules.max_size_kb = Number(source.maxSizeKb)
+    payload.validation_rules = rules
+  }
   return payload
 }
 
 function resetNewField() {
-  Object.assign(newField, { label: '', key: '', type: 'text', help_text: '', options: [], is_required: false, min: '', max: '' })
+  Object.assign(newField, { label: '', key: '', type: 'text', help_text: '', options: [], is_required: false, min: '', max: '', maxSizeKb: '' })
 }
 
 async function addField() {
@@ -252,6 +260,7 @@ function startEditField(field) {
     is_required: field.is_required,
     min: field.validation_rules?.min ?? '',
     max: field.validation_rules?.max ?? '',
+    maxSizeKb: field.validation_rules?.max_size_kb ?? '',
     lockedOptionsCount: fieldsLocked.value ? (field.options || []).length : 0,
   })
 }
@@ -437,6 +446,13 @@ onMounted(loadProgram)
                     <input v-model.number="editField.min" type="number" placeholder="حداقل (اختیاری)" :disabled="fieldsLocked" />
                     <input v-model.number="editField.max" type="number" placeholder="حداکثر (اختیاری)" :disabled="fieldsLocked" />
                   </template>
+                  <input
+                    v-if="FILE_SIZE_TYPES.includes(editField.type)"
+                    v-model.number="editField.maxSizeKb"
+                    type="number"
+                    placeholder="حداکثر حجم به کیلوبایت (اختیاری)"
+                    :disabled="fieldsLocked"
+                  />
                   <label class="checkbox"><input v-model="editField.is_required" type="checkbox" :disabled="fieldsLocked" /> اجباری</label>
                   <div v-if="CHOICE_TYPES.includes(editField.type)" class="options-editor span-full">
                     <div v-for="(opt, i) in editField.options" :key="i" class="option-row">
@@ -479,6 +495,12 @@ onMounted(loadProgram)
           <input v-model.number="newField.min" type="number" placeholder="حداقل (اختیاری)" />
           <input v-model.number="newField.max" type="number" placeholder="حداکثر (اختیاری)" />
         </template>
+        <input
+          v-if="FILE_SIZE_TYPES.includes(newField.type)"
+          v-model.number="newField.maxSizeKb"
+          type="number"
+          placeholder="حداکثر حجم به کیلوبایت (اختیاری)"
+        />
         <label class="checkbox" :title="fieldsLocked ? 'چون این برنامه قبلاً ثبت‌نام داشته، فیلد جدید فقط اختیاری می‌تواند باشد' : ''">
           <input v-model="newField.is_required" type="checkbox" :disabled="fieldsLocked" /> اجباری
         </label>

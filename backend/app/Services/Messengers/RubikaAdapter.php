@@ -8,6 +8,8 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Rubika's Bot API (https://botapi.rubika.ir/v3) has its own JSON shape,
@@ -70,6 +72,7 @@ class RubikaAdapter implements MessengerAdapter
             text: $buttonId ?? ($message['text'] ?? null),
             fileId: $message['file']['file_id'] ?? null,
             fileType: isset($message['file']) ? 'file' : null,
+            fileSize: $message['file']['size'] ?? null,
         );
     }
 
@@ -156,6 +159,48 @@ class RubikaAdapter implements MessengerAdapter
     public function wasBlockedByUser(): bool
     {
         return $this->blockedByUser;
+    }
+
+    /**
+     * Rubika's getFile POST returns {"data":{"download_url": "..."}}
+     * (confirmed against the Mahdy-Ahmadi/Rubka Python library, since this
+     * isn't documented); a plain GET on that URL then returns the bytes.
+     */
+    public function downloadFile(string $fileId, string $fileType): ?string
+    {
+        try {
+            $response = Http::timeout(10)->post($this->apiUrl('getFile'), ['file_id' => $fileId]);
+
+            if ($response->failed()) {
+                Log::warning('Rubika getFile failed', ['response' => $response->json()]);
+
+                return null;
+            }
+
+            $downloadUrl = $response->json('data.download_url');
+
+            if (! $downloadUrl) {
+                return null;
+            }
+
+            $fileResponse = Http::timeout(20)->get($downloadUrl);
+
+            if ($fileResponse->failed()) {
+                Log::warning('Rubika file download failed', ['url' => $downloadUrl]);
+
+                return null;
+            }
+
+            $extension = pathinfo(parse_url($downloadUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION) ?: 'bin';
+            $storedPath = 'registration-uploads/rubika/'.Str::uuid().'.'.$extension;
+            Storage::disk('public')->put($storedPath, $fileResponse->body());
+
+            return $storedPath;
+        } catch (ConnectionException $exception) {
+            Log::error('Rubika downloadFile connection failed', ['message' => $exception->getMessage()]);
+
+            return null;
+        }
     }
 
     /**

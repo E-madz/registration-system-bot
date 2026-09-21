@@ -46,6 +46,7 @@ class StoreProgramFieldRequest extends FormRequest
             'validation_rules' => ['nullable', 'array'],
             'validation_rules.min' => ['nullable', 'integer', 'min:0'],
             'validation_rules.max' => ['nullable', 'integer', 'min:0', 'gte:validation_rules.min'],
+            'validation_rules.max_size_kb' => ['nullable', 'integer', 'min:1'],
         ];
     }
 }

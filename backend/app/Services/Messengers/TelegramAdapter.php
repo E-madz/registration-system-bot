@@ -13,4 +13,9 @@ class TelegramAdapter extends AbstractTelegramCompatibleAdapter
     {
         return 'https://api.telegram.org/bot';
     }
+
+    protected function fileBaseUrl(): string
+    {
+        return 'https://api.telegram.org/file/bot';
+    }
 }

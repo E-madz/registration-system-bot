@@ -123,6 +123,7 @@ class BotConversationService
             $action === 'program' && $argument => $this->showProgramDetail($botUser, (int) $argument, $adapter),
             $action === 'register' && $argument => $this->startRegistration($botUser, (int) $argument, $adapter),
             $action === 'cancel_registration' && $argument => $this->cancelRegistration($botUser, (int) $argument, $adapter),
+            $action === 'view_registration' && $argument => $this->showRegistrationAnswers($botUser, (int) $argument, $adapter),
             $action === 'back_to_programs' => $this->showProgramList($chatId, $adapter),
             $action === 'browse_all' => $this->showProgramList($chatId, $adapter),
             default => $adapter->sendMessage($chatId, 'دستور نامعتبر است. لطفاً /start را ارسال کنید.'),
@@ -289,21 +290,30 @@ class BotConversationService
         }
 
         if ($program->status === Program::STATUS_CLOSED) {
-            $status = $hasConfirmed
-                ? "🔒 مهلت ثبت‌نام پایان یافته است.\n✅ ثبت‌نام شما نهایی بوده است.\n🎫 کد پیگیری: {$registration->tracking_code}"
-                : '🔒 مهلت ثبت‌نام این برنامه پایان یافته است.';
+            if ($hasConfirmed) {
+                return [
+                    "🔒 مهلت ثبت‌نام پایان یافته است.\n✅ ثبت‌نام شما نهایی بوده است.\n🎫 کد پیگیری: {$registration->tracking_code}",
+                    [
+                        [new KeyboardButton('📋 مشاهده اطلاعات ثبت‌نامی', "view_registration-{$registration->id}")],
+                        [$backButton],
+                    ],
+                ];
+            }
 
-            return [$status, [[$backButton]]];
+            return ['🔒 مهلت ثبت‌نام این برنامه پایان یافته است.', [[$backButton]]];
         }
 
         // published
         if ($hasConfirmed) {
             return [
                 "✅ وضعیت شما: ثبت‌نام قطعی شده است.\n🎫 کد پیگیری: {$registration->tracking_code}",
-                [[
-                    new KeyboardButton('❌ انصراف از برنامه', "cancel_registration-{$registration->id}"),
-                    $backButton,
-                ]],
+                [
+                    [new KeyboardButton('📋 مشاهده اطلاعات ثبت‌نامی', "view_registration-{$registration->id}")],
+                    [
+                        new KeyboardButton('❌ انصراف از برنامه', "cancel_registration-{$registration->id}"),
+                        $backButton,
+                    ],
+                ],
             ];
         }
 
@@ -373,5 +383,51 @@ class BotConversationService
         ]);
 
         $adapter->sendMessage($botUser->chat_id, 'ثبت‌نام شما لغو شد. در صورت تمایل می‌توانید دوباره ثبت‌نام کنید.');
+    }
+
+    private function showRegistrationAnswers(BotUser $botUser, int $registrationId, MessengerAdapter $adapter): void
+    {
+        $registration = Registration::query()
+            ->where('id', $registrationId)
+            ->where('bot_user_id', $botUser->id)
+            ->with('answers', 'program')
+            ->first();
+
+        if (! $registration) {
+            $adapter->sendMessage($botUser->chat_id, 'این ثبت‌نام یافت نشد.');
+
+            return;
+        }
+
+        $lines = ["📋 اطلاعات ثبت‌نام شما در «{$registration->program->title}»:", ''];
+
+        if ($registration->answers->isEmpty()) {
+            $lines[] = 'این برنامه فیلدی نداشته است.';
+        } else {
+            foreach ($registration->answers as $answer) {
+                $lines[] = "{$answer->field_label}: ".$this->formatAnswerForBot($answer->value);
+            }
+        }
+
+        $adapter->sendMessage(
+            $botUser->chat_id,
+            implode("\n", $lines),
+            [[new KeyboardButton('🔙 بازگشت', "program-{$registration->program_id}")]],
+        );
+    }
+
+    private function formatAnswerForBot(mixed $value): string
+    {
+        if ($value === null) {
+            return 'رد شد';
+        }
+        if (is_array($value) && isset($value['file_id'])) {
+            return '📎 فایل ارسال شد';
+        }
+        if (is_array($value)) {
+            return implode('، ', $value);
+        }
+
+        return (string) $value;
     }
 }

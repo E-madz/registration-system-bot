@@ -92,7 +92,20 @@ class RegistrationFlowService
                 return;
             }
 
-            $this->storeAnswerAndAdvance($state, $field, ['file_id' => $update->fileId, 'type' => $update->fileType], $adapter);
+            $maxSizeKb = $field->validation_rules['max_size_kb'] ?? null;
+            if ($maxSizeKb !== null && $update->fileSize !== null && $update->fileSize > $maxSizeKb * 1024) {
+                $adapter->sendMessage($chatId, "حجم فایل بیشتر از حد مجاز است. حداکثر حجم مجاز: {$maxSizeKb} کیلوبایت.");
+
+                return;
+            }
+
+            $storedPath = $adapter->downloadFile($update->fileId, $update->fileType);
+
+            $this->storeAnswerAndAdvance($state, $field, array_filter([
+                'file_id' => $update->fileId,
+                'type' => $update->fileType,
+                'stored_path' => $storedPath,
+            ]), $adapter);
 
             return;
         }
@@ -202,9 +215,8 @@ class RegistrationFlowService
         if ($index > 0) {
             $controlRow[] = new KeyboardButton('◀️ فیلد قبلی', 'field_back');
         }
-        if ($controlRow) {
-            $keyboard[] = $controlRow;
-        }
+        $controlRow[] = new KeyboardButton('❌ انصراف', 'cancel_registration_flow');
+        $keyboard[] = $controlRow;
 
         $adapter->sendMessage($chatId, $text, $keyboard ?: null);
     }

@@ -16,6 +16,7 @@ final class IncomingUpdate
         public readonly ?string $callbackQueryId = null,
         public readonly ?string $fileId = null,
         public readonly ?string $fileType = null,
+        public readonly ?int $fileSize = null,
     ) {}
 
     public function isCallback(): bool

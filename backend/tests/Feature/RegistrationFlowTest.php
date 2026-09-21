@@ -54,7 +54,7 @@ class RegistrationFlowTest extends TestCase
         ])->assertOk();
     }
 
-    private function sendPhoto(): void
+    private function sendPhoto(?int $fileSize = null): void
     {
         $this->postJson($this->webhookUrl(), [
             'message' => [
@@ -62,7 +62,10 @@ class RegistrationFlowTest extends TestCase
                 'from' => ['id' => 222, 'first_name' => 'Emad'],
                 'photo' => [
                     ['file_id' => 'small_file_id', 'width' => 90, 'height' => 90],
-                    ['file_id' => 'large_file_id', 'width' => 800, 'height' => 800],
+                    array_filter([
+                        'file_id' => 'large_file_id', 'width' => 800, 'height' => 800,
+                        'file_size' => $fileSize,
+                    ]),
                 ],
             ],
         ])->assertOk();
@@ -250,6 +253,67 @@ class RegistrationFlowTest extends TestCase
         $answer = $registration->answers()->where('field_key', 'id_card')->first();
         $this->assertEquals('large_file_id', $answer->value['file_id']);
         $this->assertEquals('photo', $answer->value['type']);
+    }
+
+    public function test_file_field_rejects_a_file_over_the_configured_max_size(): void
+    {
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        ProgramField::factory()->create([
+            'program_id' => $program->id, 'key' => 'id_card', 'label' => 'ID card photo',
+            'type' => 'file', 'is_required' => true, 'order' => 0,
+            'validation_rules' => ['max_size_kb' => 100],
+        ]);
+
+        $this->sendCallback("register-{$program->id}");
+        $this->sendPhoto(fileSize: 200 * 1024);
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'حجم فایل بیشتر از حد مجاز است'));
+
+        $this->assertDatabaseCount('registrations', 0);
+
+        $this->sendPhoto(fileSize: 50 * 1024);
+        $this->sendCallback('confirm_registration');
+
+        $this->assertDatabaseHas('registrations', ['program_id' => $program->id]);
+    }
+
+    public function test_registering_shows_a_cancel_button_at_every_field(): void
+    {
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        ProgramField::factory()->create([
+            'program_id' => $program->id, 'key' => 'full_name', 'label' => 'Full name',
+            'type' => 'text', 'is_required' => true, 'order' => 0,
+        ]);
+
+        $this->sendCallback("register-{$program->id}");
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains(json_encode($request['reply_markup'] ?? []), 'cancel_registration_flow'));
+    }
+
+    public function test_can_view_submitted_answers_after_registering(): void
+    {
+        $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED]);
+        ProgramField::factory()->create([
+            'program_id' => $program->id, 'key' => 'full_name', 'label' => 'Full name',
+            'type' => 'text', 'is_required' => true, 'order' => 0,
+        ]);
+
+        $this->sendCallback("register-{$program->id}");
+        $this->sendMessage('Ali Mohammadi');
+        $this->sendCallback('confirm_registration');
+
+        // The program detail view now offers a button to view submitted info.
+        $this->sendCallback("program-{$program->id}");
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains(json_encode($request['reply_markup'] ?? []), 'view_registration'));
+
+        $registration = Registration::first();
+        $this->sendCallback("view_registration-{$registration->id}");
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'Full name: Ali Mohammadi'));
     }
 
     public function test_back_button_returns_to_previous_field(): void

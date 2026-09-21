@@ -8,6 +8,8 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Base for messengers whose Bot API is a Telegram-Bot-API-compatible clone
@@ -49,14 +51,18 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
 
         $fileId = null;
         $fileType = null;
+        $fileSize = null;
 
         if (isset($message['photo'])) {
             // Multiple sizes are sent; the last one is the largest.
-            $fileId = last($message['photo'])['file_id'] ?? null;
+            $largestPhoto = last($message['photo']);
+            $fileId = $largestPhoto['file_id'] ?? null;
             $fileType = 'photo';
+            $fileSize = $largestPhoto['file_size'] ?? null;
         } elseif (isset($message['document'])) {
             $fileId = $message['document']['file_id'] ?? null;
             $fileType = 'document';
+            $fileSize = $message['document']['file_size'] ?? null;
         }
 
         return new IncomingUpdate(
@@ -69,6 +75,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
             text: $message['text'] ?? null,
             fileId: $fileId,
             fileType: $fileType,
+            fileSize: $fileSize,
         );
     }
 
@@ -138,6 +145,55 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
     {
         return $this->blockedByUser;
     }
+
+    /**
+     * Downloads a file the user sent us and stores it on the public disk so
+     * the admin panel can serve it back, since a bare file_id is only ever
+     * resolvable through this same bot token and expires eventually.
+     * Returns the stored relative path, or null if anything failed.
+     */
+    public function downloadFile(string $fileId, string $fileType): ?string
+    {
+        try {
+            $response = Http::timeout(10)->get($this->apiUrl('getFile'), ['file_id' => $fileId]);
+
+            if ($response->failed()) {
+                Log::warning($this->platform().' getFile failed', ['response' => $response->json()]);
+
+                return null;
+            }
+
+            $filePath = $response->json('result.file_path');
+
+            if (! $filePath) {
+                return null;
+            }
+
+            $fileResponse = Http::timeout(20)->get("{$this->fileBaseUrl()}{$this->botToken}/{$filePath}");
+
+            if ($fileResponse->failed()) {
+                Log::warning($this->platform().' file download failed', ['file_path' => $filePath]);
+
+                return null;
+            }
+
+            $extension = pathinfo($filePath, PATHINFO_EXTENSION) ?: 'bin';
+            $storedPath = 'registration-uploads/'.$this->platform().'/'.Str::uuid().'.'.$extension;
+            Storage::disk('public')->put($storedPath, $fileResponse->body());
+
+            return $storedPath;
+        } catch (ConnectionException $exception) {
+            Log::error($this->platform().' downloadFile connection failed', ['message' => $exception->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Base URL for downloading an already-resolved file path, e.g.
+     * "https://api.telegram.org/file/bot".
+     */
+    abstract protected function fileBaseUrl(): string;
 
     /**
      * Telegram (and Bale, its API clone) report a user having blocked the
