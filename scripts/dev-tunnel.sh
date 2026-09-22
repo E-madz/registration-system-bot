@@ -33,6 +33,8 @@
 #   PORT=8000                                (Laravel port)
 #   PROXY_URL=http://127.0.0.1:12334          (set to "" to skip using a proxy)
 #   RUBIKA_MAX_RETRIES=20                     (fresh-tunnel attempts for Rubika's InvalidUrl)
+#   TUNNEL_WARMUP_SECONDS=2                   (pause after a tunnel comes up, before registering it)
+#   RUBIKA_RETRY_DELAY_SECONDS=3              (pause between Rubika retries, to avoid tripping rate-limiting)
 #
 # PROXY_URL is only used for this script's own setWebhook calls to Telegram
 # (a foreign service, typically blocked without a VPN in Iran) - Pinggy's own
@@ -49,6 +51,8 @@ ENV_FILE="$ROOT_DIR/backend/.env"
 PORT="${PORT:-8000}"
 PROXY_URL="${PROXY_URL-http://127.0.0.1:12334}"
 RUBIKA_MAX_RETRIES="${RUBIKA_MAX_RETRIES:-20}"
+TUNNEL_WARMUP_SECONDS="${TUNNEL_WARMUP_SECONDS:-2}"
+RUBIKA_RETRY_DELAY_SECONDS="${RUBIKA_RETRY_DELAY_SECONDS:-3}"
 PINGGY_HOST="a.pinggy.io"
 
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -236,6 +240,11 @@ for attempt in $(seq 1 "$RUBIKA_MAX_RETRIES"); do
     fi
     log "Tunnel URL: $TUNNEL_URL"
     echo
+    # Give the port-forward a moment to actually become routable before
+    # anyone (especially Rubika, which validates the URL by hitting it
+    # immediately) tries to reach it - registering right as the URL first
+    # appears in the log can race the tunnel not being fully live yet.
+    sleep "$TUNNEL_WARMUP_SECONDS"
 
     register_telegram "$TUNNEL_URL"
     register_bale "$TUNNEL_URL"
@@ -250,6 +259,10 @@ for attempt in $(seq 1 "$RUBIKA_MAX_RETRIES"); do
 
     echo "Rubika rejected this tunnel URL, getting a new one and retrying..."
     echo
+    # A short backoff between retries, so a run of rejections doesn't hammer
+    # Rubika's API in a tight loop (which risks looking like abuse and
+    # getting rate-limited, making every subsequent attempt fail too).
+    sleep "$RUBIKA_RETRY_DELAY_SECONDS"
     TUNNEL_URL=""
 done
 
@@ -281,6 +294,7 @@ while true; do
         fi
         log "New tunnel URL: $TUNNEL_URL"
         echo
+        sleep "$TUNNEL_WARMUP_SECONDS"
 
         register_telegram "$TUNNEL_URL"
         register_bale "$TUNNEL_URL"
@@ -292,5 +306,6 @@ while true; do
 
         echo "Rubika rejected this tunnel URL, getting a new one and retrying..."
         echo
+        sleep "$RUBIKA_RETRY_DELAY_SECONDS"
     done
 done
