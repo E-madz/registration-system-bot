@@ -19,6 +19,7 @@ async function handleLogout() {
       <router-link to="/dashboard" class="nav-link" :class="{ active: route.path === '/dashboard' }">داشبورد</router-link>
       <router-link to="/programs" class="nav-link" :class="{ active: route.path.startsWith('/programs') }">برنامه‌ها</router-link>
       <router-link to="/notifications" class="nav-link" :class="{ active: route.path.startsWith('/notifications') }">اطلاع‌رسانی‌ها</router-link>
+      <router-link to="/users" class="nav-link" :class="{ active: route.path.startsWith('/users') }">کاربران</router-link>
     </div>
     <button class="ghost small" @click="handleLogout">خروج</button>
   </nav>

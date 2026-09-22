@@ -35,6 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/programs/{program}/fields/{field}', [ProgramFieldController::class, 'update']);
     Route::delete('/programs/{program}/fields/{field}', [ProgramFieldController::class, 'destroy']);
 
+    Route::get('/bot-users', [BotUserController::class, 'index']);
     Route::patch('/bot-users/{botUser}/ban', [BotUserController::class, 'ban']);
     Route::patch('/bot-users/{botUser}/unban', [BotUserController::class, 'unban']);
 

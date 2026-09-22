@@ -14,6 +14,28 @@ class BotUserController extends Controller
 {
     public function __construct(private NotificationService $notifications) {}
 
+    public function index(Request $request)
+    {
+        $botUsers = BotUser::query()
+            ->when($request->filled('platform'), fn ($query) => $query->where('platform', $request->input('platform')))
+            ->when($request->filled('is_banned'), fn ($query) => $query->where('is_banned', $request->boolean('is_banned')))
+            ->when($request->filled('is_blocked'), fn ($query) => $query->where('is_blocked', $request->boolean('is_blocked')))
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $term = '%'.$request->input('search').'%';
+                $query->where(function ($query) use ($term) {
+                    $query->where('first_name', 'like', $term)
+                        ->orWhere('last_name', 'like', $term)
+                        ->orWhere('username', 'like', $term)
+                        ->orWhere('phone', 'like', $term)
+                        ->orWhere('external_id', 'like', $term);
+                });
+            })
+            ->latest()
+            ->paginate($request->integer('per_page', 15));
+
+        return BotUserResource::collection($botUsers);
+    }
+
     public function ban(Request $request, BotUser $botUser)
     {
         $data = $request->validate([
