@@ -30,6 +30,35 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
 
     abstract protected function apiBaseUrl(): string;
 
+    /**
+     * Outbound proxy URL for this platform's API calls (e.g.
+     * "http://127.0.0.1:12334"), or null to connect directly. Telegram is
+     * blocked without one from networks that can't reach it directly, and
+     * this must be applied by the HTTP client itself rather than left to
+     * shell-exported http_proxy/https_proxy env vars, since those only cover
+     * whichever process happened to inherit them (e.g. a tunnel script's own
+     * shell) - not every process that ends up calling this adapter, such as
+     * a queue worker started in a separate terminal.
+     */
+    protected function proxyUrl(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * @return \Illuminate\Http\Client\PendingRequest
+     */
+    private function http(int $timeoutSeconds)
+    {
+        $client = Http::timeout($timeoutSeconds);
+
+        if ($this->proxyUrl()) {
+            $client = $client->withOptions(['proxy' => $this->proxyUrl()]);
+        }
+
+        return $client;
+    }
+
     public function parseUpdate(Request $request): IncomingUpdate
     {
         $data = $request->all();
@@ -107,7 +136,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
         }
 
         try {
-            $response = Http::timeout(10)
+            $response = $this->http(10)
                 ->attach('photo', file_get_contents($photoPath), basename($photoPath))
                 ->post($this->apiUrl('sendPhoto'), $payload);
 
@@ -157,7 +186,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
     public function downloadFile(string $fileId, string $fileType): ?string
     {
         try {
-            $response = Http::timeout(10)->get($this->apiUrl('getFile'), ['file_id' => $fileId]);
+            $response = $this->http(10)->get($this->apiUrl('getFile'), ['file_id' => $fileId]);
 
             if ($response->failed()) {
                 Log::warning($this->platform().' getFile failed', ['response' => $response->json()]);
@@ -171,7 +200,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
                 return null;
             }
 
-            $fileResponse = Http::timeout(20)->get("{$this->fileBaseUrl()}{$this->botToken}/{$filePath}");
+            $fileResponse = $this->http(20)->get("{$this->fileBaseUrl()}{$this->botToken}/{$filePath}");
 
             if ($fileResponse->failed()) {
                 Log::warning($this->platform().' file download failed', ['file_path' => $filePath]);
@@ -231,7 +260,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
     private function post(string $method, array $payload): bool
     {
         try {
-            $response = Http::timeout(5)->post($this->apiUrl($method), $payload);
+            $response = $this->http(5)->post($this->apiUrl($method), $payload);
 
             if ($response->failed()) {
                 $this->checkBlockedByUser($response);

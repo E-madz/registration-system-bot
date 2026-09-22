@@ -71,7 +71,16 @@ class NotificationService
         $platform = $attributes['audience_platform'] ?? null;
 
         return match ($attributes['audience_type'] ?? null) {
+            // The broadcast-style audiences below exclude bot_users with an
+            // empty chat_id - a handful of stale/corrupt records from early
+            // testing have one, and there is never a valid send target for
+            // those, so including them just wastes a request and logs a
+            // warning. single_user is left unfiltered further down: an admin
+            // explicitly picked that exact recipient (e.g. a ban notice), so
+            // a real send attempt - and a visible failure if it can't be
+            // reached - is more useful than a silent skip.
             Notification::AUDIENCE_PROGRAM_REGISTRANTS => BotUser::query()
+                ->where('chat_id', '!=', '')
                 ->whereHas('registrations', function ($query) use ($attributes) {
                     $query->where('program_id', $this->required($attributes, 'audience_program_id'))
                         ->where('status', Registration::STATUS_CONFIRMED);
@@ -80,10 +89,12 @@ class NotificationService
                 ->get(),
 
             Notification::AUDIENCE_ALL_USERS => BotUser::query()
+                ->where('chat_id', '!=', '')
                 ->when($platform, fn ($query) => $query->where('platform', $platform))
                 ->get(),
 
             Notification::AUDIENCE_INACTIVE_USERS => BotUser::query()
+                ->where('chat_id', '!=', '')
                 ->where(function ($query) use ($attributes) {
                     $days = $this->required($attributes, 'inactive_days');
                     $query->whereNull('last_interaction_at')

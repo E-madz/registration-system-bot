@@ -92,6 +92,21 @@ class NotificationTest extends TestCase
         $this->assertNotContains($recent->id, $recipientIds);
     }
 
+    public function test_bot_users_with_an_empty_chat_id_are_excluded_from_broadcast_audiences(): void
+    {
+        $this->fakeTelegram();
+        BotUser::create(['platform' => 'telegram', 'external_id' => '1', 'chat_id' => '1']);
+        BotUser::create(['platform' => 'telegram', 'external_id' => '2', 'chat_id' => '']);
+
+        $notification = app(NotificationService::class)->create([
+            'message' => 'hello',
+            'source' => Notification::SOURCE_MANUAL,
+            'audience_type' => Notification::AUDIENCE_ALL_USERS,
+        ]);
+
+        $this->assertSame(1, $notification->total_recipients);
+    }
+
     public function test_banned_and_blocked_users_are_skipped_and_counted_for_non_single_user_audiences(): void
     {
         $this->fakeTelegram();

@@ -18,4 +18,9 @@ class TelegramAdapter extends AbstractTelegramCompatibleAdapter
     {
         return 'https://api.telegram.org/file/bot';
     }
+
+    protected function proxyUrl(): ?string
+    {
+        return config('services.telegram.proxy');
+    }
 }

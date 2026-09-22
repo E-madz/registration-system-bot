@@ -38,6 +38,13 @@ return [
     'telegram' => [
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+        // Telegram is unreachable without one from networks that block it
+        // directly (e.g. from Iran without a VPN). Setting this makes every
+        // Telegram API call go through the proxy regardless of which process
+        // makes it (web server, queue worker, artisan command, ...) - unlike
+        // a shell-exported http_proxy/https_proxy, which only covers
+        // whichever process happened to inherit it.
+        'proxy' => env('TELEGRAM_HTTP_PROXY'),
     ],
 
     'bale' => [
