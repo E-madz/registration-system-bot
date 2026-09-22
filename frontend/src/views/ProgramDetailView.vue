@@ -189,8 +189,13 @@ async function deleteMedia() {
 
 async function changeStatus() {
   if (!newStatus.value) return
+  let reason = null
+  if (newStatus.value === 'canceled') {
+    reason = prompt('دلیل لغو برنامه (برای اطلاع‌رسانی به ثبت‌نام‌شدگان، اختیاری):')
+    if (reason === null) return
+  }
   try {
-    const { data } = await apiClient.patch(`/programs/${programId}/status`, { status: newStatus.value })
+    const { data } = await apiClient.patch(`/programs/${programId}/status`, { status: newStatus.value, reason: reason || null })
     program.status = data.data.status
     newStatus.value = ''
   } catch (e) {
@@ -325,7 +330,10 @@ onMounted(loadProgram)
     <section class="card">
       <div class="card-header">
         <h2>ثبت‌نام‌ها</h2>
-        <button class="small" @click="router.push(`/programs/${programId}/registrations`)">مشاهده لیست</button>
+        <div class="row">
+          <button class="small" @click="router.push(`/programs/${programId}/registrations`)">مشاهده لیست</button>
+          <button class="small" @click="router.push(`/notifications?program_id=${programId}`)">ارسال اعلان به ثبت‌نام‌شدگان</button>
+        </div>
       </div>
       <div class="stats-row">
         <span><strong>{{ program.confirmed_registrations_count }}</strong> <span class="muted">تاییدشده</span></span>

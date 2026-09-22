@@ -79,7 +79,7 @@ class RubikaAdapter implements MessengerAdapter
         );
     }
 
-    public function sendMessage(string $chatId, string $text, ?array $keyboard = null): void
+    public function sendMessage(string $chatId, string $text, ?array $keyboard = null): bool
     {
         $payload = ['chat_id' => $chatId, 'text' => $text];
 
@@ -87,7 +87,7 @@ class RubikaAdapter implements MessengerAdapter
             $payload['inline_keypad'] = $this->buildInlineKeypad($keyboard);
         }
 
-        $this->post('sendMessage', $payload);
+        return $this->post('sendMessage', $payload);
     }
 
     public function sendPhoto(string $chatId, string $photoPath, string $caption, ?array $keyboard = null): void
@@ -222,7 +222,7 @@ class RubikaAdapter implements MessengerAdapter
         return ['rows' => $rows];
     }
 
-    private function post(string $method, array $payload): void
+    private function post(string $method, array $payload): bool
     {
         try {
             $response = Http::timeout(5)->post($this->apiUrl($method), $payload);
@@ -241,9 +241,15 @@ class RubikaAdapter implements MessengerAdapter
                     $this->blockedByUser = true;
                 }
                 Log::warning("Rubika {$method} rejected", ['payload' => $payload, 'response' => $body]);
+
+                return false;
             }
+
+            return true;
         } catch (ConnectionException $exception) {
             Log::error("Rubika {$method} connection failed", ['message' => $exception->getMessage()]);
+
+            return false;
         }
     }
 

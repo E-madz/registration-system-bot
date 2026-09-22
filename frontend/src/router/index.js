@@ -6,6 +6,8 @@ import ProgramsListView from '../views/ProgramsListView.vue'
 import ProgramDetailView from '../views/ProgramDetailView.vue'
 import RegistrationsListView from '../views/RegistrationsListView.vue'
 import RegistrationDetailView from '../views/RegistrationDetailView.vue'
+import NotificationsListView from '../views/NotificationsListView.vue'
+import NotificationDetailView from '../views/NotificationDetailView.vue'
 
 const routes = [
   { path: '/', redirect: '/dashboard' },
@@ -15,6 +17,8 @@ const routes = [
   { path: '/programs/:id', component: ProgramDetailView, meta: { requiresAuth: true } },
   { path: '/programs/:id/registrations', component: RegistrationsListView, meta: { requiresAuth: true } },
   { path: '/programs/:id/registrations/:registrationId', component: RegistrationDetailView, meta: { requiresAuth: true } },
+  { path: '/notifications', component: NotificationsListView, meta: { requiresAuth: true } },
+  { path: '/notifications/:id', component: NotificationDetailView, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({

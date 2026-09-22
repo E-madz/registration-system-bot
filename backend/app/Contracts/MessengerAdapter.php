@@ -18,11 +18,15 @@ interface MessengerAdapter
     public function parseUpdate(Request $request): IncomingUpdate;
 
     /**
-     * Send a text message, optionally with rows of inline buttons.
+     * Send a text message, optionally with rows of inline buttons. Returns
+     * whether the platform accepted the message - false covers any rejection
+     * other than being blocked (invalid chat id, rate limiting, etc.), which
+     * notification delivery tracking needs in order to report real failures
+     * instead of just logging them and moving on.
      *
      * @param  array<int, array<int, \App\DataTransferObjects\KeyboardButton>>|null  $keyboard
      */
-    public function sendMessage(string $chatId, string $text, ?array $keyboard = null): void;
+    public function sendMessage(string $chatId, string $text, ?array $keyboard = null): bool;
 
     /**
      * Send a locally stored image with a caption, optionally with rows of inline buttons.

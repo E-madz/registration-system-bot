@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BotUserController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProgramController;
 use App\Http\Controllers\Api\ProgramFieldController;
 use App\Http\Controllers\Api\RegistrationController;
@@ -41,4 +42,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/programs/{program}/registrations/export', [RegistrationController::class, 'export']);
     Route::get('/programs/{program}/registrations/{registration}', [RegistrationController::class, 'show']);
     Route::patch('/programs/{program}/registrations/{registration}/cancel', [RegistrationController::class, 'cancel']);
+
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications', [NotificationController::class, 'store']);
+    Route::get('/notifications/{notification}', [NotificationController::class, 'show']);
 });

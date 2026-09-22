@@ -25,6 +25,8 @@ class BotUserBanTest extends TestCase
     public function test_banning_a_user_cancels_their_confirmed_registrations_and_frees_capacity(): void
     {
         $this->actingAdmin();
+        config(['services.telegram.bot_token' => 'test-token']);
+        Http::fake();
 
         $program = Program::factory()->create(['status' => Program::STATUS_PUBLISHED, 'capacity' => 5]);
         $botUser = BotUser::create(['platform' => 'telegram', 'external_id' => '111', 'chat_id' => '111']);
@@ -46,11 +48,18 @@ class BotUserBanTest extends TestCase
         $this->assertSame(Registration::STATUS_CANCELED, $registration->status);
         $this->assertSame(Registration::REASON_BANNED, $registration->canceled_reason);
         $this->assertSame(0, $program->fresh()->confirmedRegistrationsCount());
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'مسدود شده')
+            && str_contains($request['text'] ?? '', 'spam'));
     }
 
     public function test_unbanning_a_user_clears_the_ban_fields(): void
     {
         $this->actingAdmin();
+        config(['services.telegram.bot_token' => 'test-token']);
+        Http::fake();
+
         $botUser = BotUser::create([
             'platform' => 'telegram', 'external_id' => '111', 'chat_id' => '111',
             'is_banned' => true, 'banned_at' => now(), 'ban_reason' => 'spam',
@@ -60,6 +69,9 @@ class BotUserBanTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.is_banned', false)
             ->assertJsonPath('data.ban_reason', null);
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'رفع شد'));
     }
 
     public function test_a_banned_user_gets_a_refusal_message_and_nothing_else_is_processed(): void

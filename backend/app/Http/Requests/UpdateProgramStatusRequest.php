@@ -17,6 +17,7 @@ class UpdateProgramStatusRequest extends FormRequest
     {
         return [
             'status' => ['required', 'string', Rule::in(Program::STATUSES)],
+            'reason' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

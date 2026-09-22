@@ -81,7 +81,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
         );
     }
 
-    public function sendMessage(string $chatId, string $text, ?array $keyboard = null): void
+    public function sendMessage(string $chatId, string $text, ?array $keyboard = null): bool
     {
         $payload = [
             'chat_id' => $chatId,
@@ -92,7 +92,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
             $payload['reply_markup'] = ['inline_keyboard' => $this->buildInlineKeyboard($keyboard)];
         }
 
-        $this->post('sendMessage', $payload);
+        return $this->post('sendMessage', $payload);
     }
 
     public function sendPhoto(string $chatId, string $photoPath, string $caption, ?array $keyboard = null): void
@@ -228,7 +228,7 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
      * unreachable messenger never turns into a 500 on our webhook — we just
      * log and move on.
      */
-    private function post(string $method, array $payload): void
+    private function post(string $method, array $payload): bool
     {
         try {
             $response = Http::timeout(5)->post($this->apiUrl($method), $payload);
@@ -236,9 +236,15 @@ abstract class AbstractTelegramCompatibleAdapter implements MessengerAdapter
             if ($response->failed()) {
                 $this->checkBlockedByUser($response);
                 Log::warning($this->platform()." {$method} failed", ['response' => $response->json()]);
+
+                return false;
             }
+
+            return true;
         } catch (ConnectionException $exception) {
             Log::error($this->platform()." {$method} connection failed", ['message' => $exception->getMessage()]);
+
+            return false;
         }
     }
 

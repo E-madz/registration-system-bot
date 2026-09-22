@@ -8,12 +8,16 @@ use App\Http\Requests\UpdateProgramRequest;
 use App\Http\Requests\UpdateProgramStatusRequest;
 use App\Http\Requests\UploadProgramMediaRequest;
 use App\Http\Resources\ProgramResource;
+use App\Models\Notification;
 use App\Models\Program;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class ProgramController extends Controller
 {
+    public function __construct(private NotificationService $notifications) {}
+
     public function index(Request $request)
     {
         $programs = Program::query()
@@ -55,7 +59,8 @@ class ProgramController extends Controller
 
     public function updateStatus(UpdateProgramStatusRequest $request, Program $program)
     {
-        $status = $request->validated()['status'];
+        $data = $request->validated();
+        $status = $data['status'];
 
         if (! $program->canTransitionTo($status)) {
             return response()->json([
@@ -64,6 +69,29 @@ class ProgramController extends Controller
         }
 
         $program->update(['status' => $status]);
+
+        if ($status === Program::STATUS_CANCELED) {
+            $message = ($data['reason'] ?? null)
+                ? "برنامه «{$program->title}» لغو شد.\nدلیل: {$data['reason']}"
+                : "برنامه «{$program->title}» لغو شد.";
+
+            $this->notifications->create([
+                'message' => $message,
+                'source' => Notification::SOURCE_AUTO_PROGRAM_CANCELED,
+                'audience_type' => Notification::AUDIENCE_PROGRAM_REGISTRANTS,
+                'audience_program_id' => $program->id,
+            ]);
+        }
+
+        if ($status === Program::STATUS_PUBLISHED) {
+            $this->notifications->create([
+                'message' => "برنامه جدید «{$program->title}» منتشر شد!",
+                'button_label' => 'مشاهده برنامه',
+                'button_program_id' => $program->id,
+                'source' => Notification::SOURCE_AUTO_PROGRAM_PUBLISHED,
+                'audience_type' => Notification::AUDIENCE_ALL_USERS,
+            ]);
+        }
 
         return new ProgramResource($program);
     }

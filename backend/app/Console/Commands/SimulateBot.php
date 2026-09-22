@@ -42,10 +42,12 @@ class SimulateBot extends Command
                 throw new \RuntimeException('not used');
             }
 
-            public function sendMessage(string $chatId, string $text, ?array $keyboard = null): void
+            public function sendMessage(string $chatId, string $text, ?array $keyboard = null): bool
             {
                 echo "\n--- sendMessage ---\n{$text}\n";
                 $this->printKeyboard($keyboard);
+
+                return true;
             }
 
             public function sendPhoto(string $chatId, string $photoPath, string $caption, ?array $keyboard = null): void
