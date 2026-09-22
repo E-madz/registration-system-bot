@@ -15,6 +15,7 @@ const SOURCE_LABELS = {
   auto_unban: 'خودکار (رفع بن)',
   auto_program_canceled: 'خودکار (لغو برنامه)',
   auto_program_published: 'خودکار (انتشار برنامه)',
+  auto_registration_canceled: 'خودکار (لغو ثبت‌نام)',
 }
 const STATUS_LABELS = { pending: 'در حال ارسال', completed: 'تکمیل‌شده' }
 const PLATFORM_LABELS = { telegram: 'تلگرام', bale: 'بله', rubika: 'روبیکا' }

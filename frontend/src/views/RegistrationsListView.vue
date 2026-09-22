@@ -59,8 +59,9 @@ function goToPage(p) {
 }
 
 async function cancelRegistration(reg) {
-  if (!confirm('این ثبت‌نام لغو بشه؟')) return
-  await apiClient.patch(`/programs/${programId}/registrations/${reg.id}/cancel`)
+  const reason = prompt('دلیل لغو (برای اطلاع‌رسانی به کاربر، اختیاری):')
+  if (reason === null) return
+  await apiClient.patch(`/programs/${programId}/registrations/${reg.id}/cancel`, { reason: reason || null })
   await loadRegistrations()
 }
 
