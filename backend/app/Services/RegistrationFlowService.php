@@ -139,8 +139,51 @@ class RegistrationFlowService
     public function cancel(ConversationState $state, MessengerAdapter $adapter): void
     {
         $chatId = $state->botUser->chat_id;
+        $isEditing = $state->editing_registration_id !== null;
         $state->delete();
-        $adapter->sendMessage($chatId, 'ثبت‌نام لغو شد.');
+        $adapter->sendMessage($chatId, $isEditing ? 'ویرایش لغو شد.' : 'ثبت‌نام لغو شد.');
+    }
+
+    /**
+     * Starts a one-field "edit mode" conversation state against an existing
+     * registration, reusing the same askField/validate/storeAnswerAndAdvance
+     * machinery as a brand new registration - storeAnswerAndAdvance()
+     * branches on editing_registration_id to update the existing
+     * RegistrationAnswer in place instead of advancing to the next field.
+     */
+    public function beginFieldEdit(Registration $registration, ProgramField $field, MessengerAdapter $adapter): void
+    {
+        $existingAnswer = RegistrationAnswer::query()
+            ->where('registration_id', $registration->id)
+            ->where('program_field_id', $field->id)
+            ->first();
+
+        $answers = [];
+        if ($existingAnswer && $existingAnswer->value !== null) {
+            $answers[$field->key] = $existingAnswer->value;
+
+            if ($field->type === 'multiselect' && is_array($existingAnswer->value)) {
+                $options = $field->options ?? [];
+                $answers[self::MULTISELECT_TMP_KEY] = collect($options)
+                    ->keys()
+                    ->filter(fn ($i) => in_array($options[$i], $existingAnswer->value, true))
+                    ->values()
+                    ->all();
+            }
+        }
+
+        $state = ConversationState::updateOrCreate(
+            ['bot_user_id' => $registration->bot_user_id],
+            [
+                'program_id' => $registration->program_id,
+                'current_field_id' => $field->id,
+                'stage' => ConversationState::STAGE_COLLECTING,
+                'answers' => $answers,
+                'editing_registration_id' => $registration->id,
+            ],
+        );
+
+        $this->askField($state->fresh(), $field, $adapter);
     }
 
     private function unavailabilityReason(Program $program): string
@@ -172,11 +215,14 @@ class RegistrationFlowService
     private function askField(ConversationState $state, ProgramField $field, MessengerAdapter $adapter): void
     {
         $chatId = $state->botUser->chat_id;
+        $isEditing = $state->editing_registration_id !== null;
         $fields = $this->orderedFields($state->program);
         $index = $fields->search(fn (ProgramField $f) => $f->id === $field->id);
 
         $requiredMarker = $field->is_required ? ' (اجباری)' : ' (اختیاری)';
-        $text = "سوال ".($index + 1)." از {$fields->count()}\n{$field->label}{$requiredMarker}";
+        $text = $isEditing
+            ? "✏️ ویرایش پاسخ\n{$field->label}{$requiredMarker}"
+            : "سوال ".($index + 1)." از {$fields->count()}\n{$field->label}{$requiredMarker}";
 
         if ($field->help_text) {
             $text .= "\n{$field->help_text}";
@@ -212,7 +258,7 @@ class RegistrationFlowService
         if (! $field->is_required) {
             $controlRow[] = new KeyboardButton('رد شدن', 'field_skip');
         }
-        if ($index > 0) {
+        if (! $isEditing && $index > 0) {
             $controlRow[] = new KeyboardButton('◀️ فیلد قبلی', 'field_back');
         }
         $controlRow[] = new KeyboardButton('❌ انصراف', 'cancel_registration_flow');
@@ -317,6 +363,12 @@ class RegistrationFlowService
 
     private function storeAnswerAndAdvance(ConversationState $state, ProgramField $field, mixed $value, MessengerAdapter $adapter): void
     {
+        if ($state->editing_registration_id) {
+            $this->finishFieldEdit($state, $field, $value, $adapter);
+
+            return;
+        }
+
         $answers = $state->answers ?? [];
         $answers[$field->key] = $value;
         unset($answers[self::MULTISELECT_TMP_KEY]);
@@ -344,8 +396,34 @@ class RegistrationFlowService
         $this->sendSummary($state->fresh(), $adapter);
     }
 
+    private function finishFieldEdit(ConversationState $state, ProgramField $field, mixed $value, MessengerAdapter $adapter): void
+    {
+        $registrationId = $state->editing_registration_id;
+
+        RegistrationAnswer::updateOrCreate(
+            ['registration_id' => $registrationId, 'program_field_id' => $field->id],
+            ['field_key' => $field->key, 'field_label' => $field->label, 'value' => $value],
+        );
+
+        $chatId = $state->botUser->chat_id;
+        $state->delete();
+
+        $adapter->sendMessage(
+            $chatId,
+            "✅ پاسخ «{$field->label}» با موفقیت بروزرسانی شد.",
+            [[new KeyboardButton('📋 مشاهده اطلاعات ثبت‌نامی', "view_registration-{$registrationId}")]],
+        );
+    }
+
     private function goBack(ConversationState $state, MessengerAdapter $adapter): void
     {
+        // Edit mode only ever asks about a single field and never shows the
+        // "field_back" button, but guard anyway in case a client resends a
+        // stale callback.
+        if ($state->editing_registration_id) {
+            return;
+        }
+
         $fields = $this->orderedFields($state->program);
 
         if ($state->stage === ConversationState::STAGE_CONFIRMING) {

@@ -25,6 +25,7 @@ class ProgramField extends Model
         'is_required',
         'order',
         'validation_rules',
+        'is_editable_after_submit',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class ProgramField extends Model
             'options' => 'array',
             'validation_rules' => 'array',
             'is_required' => 'boolean',
+            'is_editable_after_submit' => 'boolean',
         ];
     }
 

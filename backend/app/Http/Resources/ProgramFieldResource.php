@@ -18,6 +18,7 @@ class ProgramFieldResource extends JsonResource
             'help_text' => $this->help_text,
             'options' => $this->options,
             'is_required' => $this->is_required,
+            'is_editable_after_submit' => $this->is_editable_after_submit,
             'order' => $this->order,
             'validation_rules' => $this->validation_rules,
         ];

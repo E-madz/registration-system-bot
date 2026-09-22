@@ -16,6 +16,7 @@ class ConversationState extends Model
         'current_field_id',
         'stage',
         'answers',
+        'editing_registration_id',
     ];
 
     protected function casts(): array

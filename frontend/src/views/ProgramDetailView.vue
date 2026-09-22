@@ -68,6 +68,7 @@ const newField = reactive({
   help_text: '',
   options: [],
   is_required: false,
+  is_editable_after_submit: false,
   min: '',
   max: '',
   maxSizeKb: '',
@@ -83,6 +84,7 @@ const editField = reactive({
   help_text: '',
   options: [],
   is_required: false,
+  is_editable_after_submit: false,
   min: '',
   max: '',
   maxSizeKb: '',
@@ -210,6 +212,7 @@ function buildFieldPayload(source) {
     type: source.type,
     help_text: source.help_text || null,
     is_required: source.is_required,
+    is_editable_after_submit: source.is_editable_after_submit,
   }
   if (CHOICE_TYPES.includes(source.type)) {
     payload.options = source.options.map((o) => o.trim()).filter(Boolean)
@@ -229,7 +232,10 @@ function buildFieldPayload(source) {
 }
 
 function resetNewField() {
-  Object.assign(newField, { label: '', key: '', type: 'text', help_text: '', options: [], is_required: false, min: '', max: '', maxSizeKb: '' })
+  Object.assign(newField, {
+    label: '', key: '', type: 'text', help_text: '', options: [],
+    is_required: false, is_editable_after_submit: false, min: '', max: '', maxSizeKb: '',
+  })
 }
 
 async function addField() {
@@ -263,6 +269,7 @@ function startEditField(field) {
     help_text: field.help_text || '',
     options: [...(field.options || [])],
     is_required: field.is_required,
+    is_editable_after_submit: field.is_editable_after_submit,
     min: field.validation_rules?.min ?? '',
     max: field.validation_rules?.max ?? '',
     maxSizeKb: field.validation_rules?.max_size_kb ?? '',
@@ -411,6 +418,7 @@ onMounted(loadProgram)
             <th>key</th>
             <th>نوع</th>
             <th>اجباری</th>
+            <th>ویرایش توسط کاربر</th>
             <th></th>
           </tr>
         </thead>
@@ -431,6 +439,7 @@ onMounted(loadProgram)
               <td class="muted">{{ field.key }}</td>
               <td>{{ FIELD_TYPE_LABELS[field.type] || field.type }}</td>
               <td>{{ field.is_required ? 'بله' : 'خیر' }}</td>
+              <td>{{ field.is_editable_after_submit ? 'بله' : 'خیر' }}</td>
               <td class="actions">
                 <button class="small" @click="startEditField(field)">ویرایش</button>
                 <button
@@ -442,7 +451,7 @@ onMounted(loadProgram)
               </td>
             </tr>
             <tr v-else class="edit-row">
-              <td colspan="6">
+              <td colspan="7">
                 <div class="field-form">
                   <input v-model="editField.label" placeholder="برچسب" maxlength="40" required />
                   <input v-model="editField.key" placeholder="key (فقط حروف لاتین کوچک و _)" required :disabled="fieldsLocked" />
@@ -462,6 +471,9 @@ onMounted(loadProgram)
                     :disabled="fieldsLocked"
                   />
                   <label class="checkbox"><input v-model="editField.is_required" type="checkbox" :disabled="fieldsLocked" /> اجباری</label>
+                  <label class="checkbox" title="کاربر می‌تواند بعد از ثبت‌نام، تا وقتی برنامه هنوز منتشرشده است، پاسخ این فیلد را ویرایش کند">
+                    <input v-model="editField.is_editable_after_submit" type="checkbox" /> قابل ویرایش توسط کاربر پس از ثبت‌نام
+                  </label>
                   <div v-if="CHOICE_TYPES.includes(editField.type)" class="options-editor span-full">
                     <div v-for="(opt, i) in editField.options" :key="i" class="option-row">
                       <input v-model="editField.options[i]" placeholder="گزینه" :disabled="fieldsLocked && i < editField.lockedOptionsCount" />
@@ -485,7 +497,7 @@ onMounted(loadProgram)
             </tr>
           </template>
           <tr v-if="fields.length === 0" class="empty-row">
-            <td colspan="6">هنوز فیلدی اضافه نشده.</td>
+            <td colspan="7">هنوز فیلدی اضافه نشده.</td>
           </tr>
         </tbody>
       </table>
@@ -511,6 +523,9 @@ onMounted(loadProgram)
         />
         <label class="checkbox" :title="fieldsLocked ? 'چون این برنامه قبلاً ثبت‌نام داشته، فیلد جدید فقط اختیاری می‌تواند باشد' : ''">
           <input v-model="newField.is_required" type="checkbox" :disabled="fieldsLocked" /> اجباری
+        </label>
+        <label class="checkbox" title="کاربر می‌تواند بعد از ثبت‌نام، تا وقتی برنامه هنوز منتشرشده است، پاسخ این فیلد را ویرایش کند">
+          <input v-model="newField.is_editable_after_submit" type="checkbox" /> قابل ویرایش توسط کاربر پس از ثبت‌نام
         </label>
         <div v-if="CHOICE_TYPES.includes(newField.type)" class="options-editor span-full">
           <div v-for="(opt, i) in newField.options" :key="i" class="option-row">
