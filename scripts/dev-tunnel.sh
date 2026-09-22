@@ -110,11 +110,15 @@ start_tunnel() {
     # forwards to our local port. Reading stdin from /dev/null keeps ssh from
     # ever trying to read from (or fight the calling shell over) a
     # controlling terminal, which matters here since this runs backgrounded.
+    # ServerAliveCountMax is deliberately NOT set here (Pinggy's docs only
+    # use ServerAliveInterval): pairing it with ServerAliveCountMax made the
+    # client itself kill a perfectly good tunnel every time, seemingly
+    # because Pinggy's server doesn't answer OpenSSH's keepalive probes the
+    # way the client expects, so the count-max threshold always got hit.
     ssh -p 443 \
         -o StrictHostKeyChecking=no \
         -o UserKnownHostsFile=/dev/null \
         -o ServerAliveInterval=30 \
-        -o ServerAliveCountMax=3 \
         -R0:localhost:"$PORT" "$PINGGY_HOST" \
         < /dev/null > "$TUNNEL_LOG" 2>&1 &
     TUNNEL_PID=$!
