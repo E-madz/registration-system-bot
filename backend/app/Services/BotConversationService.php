@@ -41,6 +41,15 @@ class BotConversationService
             ],
         );
 
+        // A blocked user can't send the bot anything on any of these
+        // platforms - blocking is mutual, not one-directional - so simply
+        // receiving this update is proof they've unblocked it since. There's
+        // no platform API to ask "is this user still blocking me", so this
+        // incoming message is the only signal we ever get for an unblock.
+        if ($botUser->is_blocked) {
+            $botUser->update(['is_blocked' => false, 'blocked_at' => null]);
+        }
+
         try {
             if ($botUser->is_banned) {
                 $adapter->sendMessage($botUser->chat_id, 'شما از استفاده از این ربات محروم شده‌اید.');

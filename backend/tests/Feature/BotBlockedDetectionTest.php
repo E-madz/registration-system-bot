@@ -62,4 +62,23 @@ class BotBlockedDetectionTest extends TestCase
 
         $this->assertFalse($botUser->refresh()->is_blocked);
     }
+
+    public function test_a_blocked_user_messaging_the_bot_again_clears_the_blocked_flag(): void
+    {
+        config(['services.telegram.bot_token' => 'test-token', 'services.telegram.webhook_secret' => 'test-secret']);
+        Http::fake();
+
+        $botUser = BotUser::create([
+            'platform' => 'telegram', 'external_id' => '555', 'chat_id' => '555',
+            'is_blocked' => true, 'blocked_at' => now(),
+        ]);
+
+        $this->postJson('/api/webhook/telegram/test-secret', [
+            'message' => ['chat' => ['id' => 555], 'from' => ['id' => 555], 'text' => '/start'],
+        ])->assertOk();
+
+        $botUser->refresh();
+        $this->assertFalse($botUser->is_blocked);
+        $this->assertNull($botUser->blocked_at);
+    }
 }
