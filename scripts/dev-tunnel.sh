@@ -86,6 +86,13 @@ fi
 TUNNEL_PID=""
 TUNNEL_LOG=""
 
+# Timestamps the connect/disconnect lifecycle lines so it's obvious from the
+# log alone whether a disconnect happened after the expected ~60 minutes
+# (free-tier cap, nothing to fix) or within seconds (a real bug).
+log() {
+    echo "[$(date '+%H:%M:%S')] $*"
+}
+
 cleanup() {
     echo
     if [[ -n "$TUNNEL_PID" ]]; then
@@ -211,7 +218,7 @@ for attempt in $(seq 1 "$RUBIKA_MAX_RETRIES"); do
         echo "Pinggy tunnel didn't come up in time, retrying..." >&2
         continue
     fi
-    echo "Tunnel URL: $TUNNEL_URL"
+    log "Tunnel URL: $TUNNEL_URL"
     echo
 
     register_telegram "$TUNNEL_URL"
@@ -235,7 +242,7 @@ if [[ -z "$TUNNEL_URL" ]]; then
     exit 1
 fi
 
-echo "Tunnel is running. Press Ctrl+C to stop."
+log "Tunnel is running. Press Ctrl+C to stop."
 echo "Free-tier Pinggy tunnels expire after 60 minutes - this script reconnects"
 echo "and re-registers every webhook automatically when that (or any other"
 echo "disconnect) happens, so it's safe to just leave this running."
@@ -249,14 +256,14 @@ echo
 while true; do
     wait "$TUNNEL_PID" 2>/dev/null || true
     echo
-    echo "Tunnel process ended (expired or disconnected). Restarting and re-registering webhooks..."
+    log "Tunnel process ended (expired or disconnected). Restarting and re-registering webhooks..."
 
     for attempt in $(seq 1 "$RUBIKA_MAX_RETRIES"); do
         if ! TUNNEL_URL="$(start_tunnel)"; then
             echo "Pinggy tunnel didn't come up in time, retrying..." >&2
             continue
         fi
-        echo "New tunnel URL: $TUNNEL_URL"
+        log "New tunnel URL: $TUNNEL_URL"
         echo
 
         register_telegram "$TUNNEL_URL"
