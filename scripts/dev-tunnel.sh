@@ -101,10 +101,29 @@ cleanup() {
     fi
     [[ -n "$TUNNEL_LOG" ]] && rm -f "$TUNNEL_LOG"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+# A trap replaces a signal's default action, so binding INT/TERM straight to
+# `cleanup` (as this used to) would leave Ctrl+C not actually stopping the
+# script - it'd tear down the tunnel and then the main loop would just
+# reconnect. Explicitly exiting here still runs `cleanup` via the EXIT trap
+# above, but now the script actually stops afterward.
+trap exit INT TERM
 
-# Starts a fresh Pinggy tunnel and prints its URL on stdout. Kills any
-# previous tunnel first. Returns non-zero if no URL shows up in time.
+# Starts a fresh Pinggy tunnel, killing any previous one first. Sets
+# TUNNEL_PID/TUNNEL_LOG/TUNNEL_URL directly in the CALLING shell and returns
+# non-zero if no URL shows up in time.
+#
+# Deliberately called as a plain `start_tunnel` statement everywhere below,
+# never as `x="$(start_tunnel)"` - command substitution runs the function in
+# a SUBSHELL, and TUNNEL_PID=$! set inside it would then vanish the moment
+# that subshell exits instead of reaching the caller. That was a real bug
+# here: every "old" ssh process leaked (never killed, never waited on)
+# because the outer TUNNEL_PID stayed empty forever, so `wait "$TUNNEL_PID"`
+# (wait with no args) returned instantly every time, the script reported the
+# tunnel as "ended" while it was actually still alive, and dozens of
+# orphaned ssh processes piled up - each fighting the others for Pinggy's
+# one-free-tunnel-per-IP limit and causing exactly the rapid disconnects
+# this whole function exists to avoid.
 start_tunnel() {
     if [[ -n "$TUNNEL_PID" ]]; then
         kill "$TUNNEL_PID" 2>/dev/null || true
@@ -130,7 +149,7 @@ start_tunnel() {
         < /dev/null > "$TUNNEL_LOG" 2>&1 &
     TUNNEL_PID=$!
 
-    local url=""
+    TUNNEL_URL=""
     for _ in $(seq 1 30); do
         if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
             return 1
@@ -141,17 +160,14 @@ start_tunnel() {
         # https://dashboard.pinggy.io mid-sentence rather than at the start
         # of a line.
         if grep -qE '^https://' "$TUNNEL_LOG" 2>/dev/null; then
-            url="$(grep -E '^https://' "$TUNNEL_LOG" | head -n1)"
+            TUNNEL_URL="$(grep -E '^https://' "$TUNNEL_LOG" | head -n1)"
             break
         fi
         sleep 1
     done
 
-    if [[ -z "$url" ]]; then
-        return 1
-    fi
-
-    echo "$url"
+    [[ -z "$TUNNEL_URL" ]] && return 1
+    return 0
 }
 
 register_telegram() {
@@ -214,7 +230,7 @@ register_rubika() {
 TUNNEL_URL=""
 for attempt in $(seq 1 "$RUBIKA_MAX_RETRIES"); do
     echo "Waiting for Pinggy tunnel URL (attempt $attempt/$RUBIKA_MAX_RETRIES)..."
-    if ! TUNNEL_URL="$(start_tunnel)"; then
+    if ! start_tunnel; then
         echo "Pinggy tunnel didn't come up in time, retrying..." >&2
         continue
     fi
@@ -259,7 +275,7 @@ while true; do
     log "Tunnel process ended (expired or disconnected). Restarting and re-registering webhooks..."
 
     for attempt in $(seq 1 "$RUBIKA_MAX_RETRIES"); do
-        if ! TUNNEL_URL="$(start_tunnel)"; then
+        if ! start_tunnel; then
             echo "Pinggy tunnel didn't come up in time, retrying..." >&2
             continue
         fi
