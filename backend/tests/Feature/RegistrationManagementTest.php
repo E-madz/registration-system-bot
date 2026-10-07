@@ -9,6 +9,7 @@ use App\Models\Registration;
 use App\Models\RegistrationAnswer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class RegistrationManagementTest extends TestCase
@@ -87,18 +88,25 @@ class RegistrationManagementTest extends TestCase
 
     public function test_admin_can_cancel_a_confirmed_registration_freeing_capacity(): void
     {
+        config(['services.telegram.bot_token' => 'test-token']);
+        Http::fake();
+
         $this->actingAdmin();
-        $program = Program::factory()->create(['capacity' => 1]);
+        $program = Program::factory()->create(['capacity' => 1, 'title' => 'دوره تستی']);
         $registration = $this->registerSomeoneFor($program);
 
         $this->assertFalse($program->fresh()->hasCapacity());
 
-        $this->patchJson("/api/programs/{$program->id}/registrations/{$registration->id}/cancel")
+        $this->patchJson("/api/programs/{$program->id}/registrations/{$registration->id}/cancel", ['reason' => 'ظرفیت جابه‌جا شد'])
             ->assertOk()
             ->assertJsonPath('data.status', 'canceled')
             ->assertJsonPath('data.canceled_reason', 'admin');
 
         $this->assertTrue($program->fresh()->hasCapacity());
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains($request['text'] ?? '', 'دوره تستی')
+            && str_contains($request['text'] ?? '', 'ظرفیت جابه‌جا شد'));
     }
 
     public function test_cannot_cancel_an_already_canceled_registration(): void

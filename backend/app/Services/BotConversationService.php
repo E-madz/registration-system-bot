@@ -7,6 +7,7 @@ use App\DataTransferObjects\IncomingUpdate;
 use App\DataTransferObjects\KeyboardButton;
 use App\Models\BotUser;
 use App\Models\Program;
+use App\Models\ProgramField;
 use App\Models\Registration;
 
 class BotConversationService
@@ -133,6 +134,7 @@ class BotConversationService
             $action === 'register' && $argument => $this->startRegistration($botUser, (int) $argument, $adapter),
             $action === 'cancel_registration' && $argument => $this->cancelRegistration($botUser, (int) $argument, $adapter),
             $action === 'view_registration' && $argument => $this->showRegistrationAnswers($botUser, (int) $argument, $adapter),
+            $action === 'edit_answer' && $argument => $this->startFieldEdit($botUser, $argument, $adapter),
             $action === 'back_to_programs' => $this->showProgramList($chatId, $adapter),
             $action === 'browse_all' => $this->showProgramList($chatId, $adapter),
             default => $adapter->sendMessage($chatId, 'دستور نامعتبر است. لطفاً /start را ارسال کنید.'),
@@ -399,7 +401,7 @@ class BotConversationService
         $registration = Registration::query()
             ->where('id', $registrationId)
             ->where('bot_user_id', $botUser->id)
-            ->with('answers', 'program')
+            ->with('answers.programField', 'program')
             ->first();
 
         if (! $registration) {
@@ -409,20 +411,64 @@ class BotConversationService
         }
 
         $lines = ["📋 اطلاعات ثبت‌نام شما در «{$registration->program->title}»:", ''];
+        $editButtons = [];
+
+        // Editing only makes sense while the registration is still confirmed
+        // (not self/admin-canceled) and the program is still published - the
+        // same window during which the user could still cancel outright.
+        $canEditAnything = $registration->status === Registration::STATUS_CONFIRMED
+            && $registration->program->status === Program::STATUS_PUBLISHED;
 
         if ($registration->answers->isEmpty()) {
             $lines[] = 'این برنامه فیلدی نداشته است.';
         } else {
             foreach ($registration->answers as $answer) {
                 $lines[] = "{$answer->field_label}: ".$this->formatAnswerForBot($answer->value);
+
+                if ($canEditAnything && $answer->programField?->is_editable_after_submit) {
+                    $editButtons[] = [new KeyboardButton(
+                        "✏️ ویرایش «{$answer->field_label}»",
+                        "edit_answer-{$registration->id}_{$answer->program_field_id}",
+                    )];
+                }
             }
         }
 
-        $adapter->sendMessage(
-            $botUser->chat_id,
-            implode("\n", $lines),
-            [[new KeyboardButton('🔙 بازگشت', "program-{$registration->program_id}")]],
-        );
+        $keyboard = [...$editButtons, [new KeyboardButton('🔙 بازگشت', "program-{$registration->program_id}")]];
+
+        $adapter->sendMessage($botUser->chat_id, implode("\n", $lines), $keyboard);
+    }
+
+    private function startFieldEdit(BotUser $botUser, string $argument, MessengerAdapter $adapter): void
+    {
+        [$registrationId, $fieldId] = array_pad(explode('_', $argument, 2), 2, null);
+
+        $registration = Registration::query()
+            ->where('id', (int) $registrationId)
+            ->where('bot_user_id', $botUser->id)
+            ->where('status', Registration::STATUS_CONFIRMED)
+            ->with('program')
+            ->first();
+
+        if (! $registration || $registration->program->status !== Program::STATUS_PUBLISHED) {
+            $adapter->sendMessage($botUser->chat_id, 'امکان ویرایش این اطلاعات در حال حاضر وجود ندارد.');
+
+            return;
+        }
+
+        $field = ProgramField::query()
+            ->where('id', (int) $fieldId)
+            ->where('program_id', $registration->program_id)
+            ->where('is_editable_after_submit', true)
+            ->first();
+
+        if (! $field) {
+            $adapter->sendMessage($botUser->chat_id, 'این فیلد قابل ویرایش نیست.');
+
+            return;
+        }
+
+        $this->registrationFlow->beginFieldEdit($registration, $field, $adapter);
     }
 
     private function formatAnswerForBot(mixed $value): string

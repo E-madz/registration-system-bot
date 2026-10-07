@@ -16,6 +16,8 @@ class Notification extends Model
 
     public const SOURCE_AUTO_PROGRAM_PUBLISHED = 'auto_program_published';
 
+    public const SOURCE_AUTO_REGISTRATION_CANCELED = 'auto_registration_canceled';
+
     public const AUDIENCE_PROGRAM_REGISTRANTS = 'program_registrants';
 
     public const AUDIENCE_ALL_USERS = 'all_users';

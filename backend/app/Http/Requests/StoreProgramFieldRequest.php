@@ -43,6 +43,7 @@ class StoreProgramFieldRequest extends FormRequest
                 },
             ],
             'order' => ['nullable', 'integer', 'min:0'],
+            'is_editable_after_submit' => ['sometimes', 'boolean'],
             'validation_rules' => ['nullable', 'array'],
             'validation_rules.min' => ['nullable', 'integer', 'min:0'],
             'validation_rules.max' => ['nullable', 'integer', 'min:0', 'gte:validation_rules.min'],

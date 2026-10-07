@@ -4,14 +4,18 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RegistrationResource;
+use App\Models\Notification;
 use App\Models\Program;
 use App\Models\Registration;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
 
 class RegistrationController extends Controller
 {
+    public function __construct(private NotificationService $notifications) {}
+
     public function index(Request $request, Program $program)
     {
         $registrations = $program->registrations()
@@ -34,7 +38,7 @@ class RegistrationController extends Controller
         return new RegistrationResource($registration->load('botUser', 'answers'));
     }
 
-    public function cancel(Program $program, Registration $registration)
+    public function cancel(Request $request, Program $program, Registration $registration)
     {
         $this->ensureRegistrationBelongsToProgram($program, $registration);
 
@@ -42,10 +46,25 @@ class RegistrationController extends Controller
             return response()->json(['message' => 'این ثبت‌نام از قبل تاییدشده نیست.'], 422);
         }
 
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
         $registration->update([
             'status' => Registration::STATUS_CANCELED,
             'canceled_at' => now(),
             'canceled_reason' => Registration::REASON_ADMIN,
+        ]);
+
+        $message = $data['reason'] ?? null
+            ? "ثبت‌نام شما در «{$program->title}» توسط مدیریت لغو شد.\nدلیل: {$data['reason']}"
+            : "ثبت‌نام شما در «{$program->title}» توسط مدیریت لغو شد.";
+
+        $this->notifications->create([
+            'message' => $message,
+            'source' => Notification::SOURCE_AUTO_REGISTRATION_CANCELED,
+            'audience_type' => Notification::AUDIENCE_SINGLE_USER,
+            'audience_bot_user_id' => $registration->bot_user_id,
         ]);
 
         return new RegistrationResource($registration->load('botUser'));
